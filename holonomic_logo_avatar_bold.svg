@@ -1,0 +1,34 @@
+<svg width="100%" viewBox="0 0 680 680" xmlns="http://www.w3.org/2000/svg">
+
+<!-- Black square background (favicon-style) -->
+<rect x="40" y="40" width="600" height="600" rx="80" fill="#080c08" style="fill:rgb(8, 12, 8);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Sphere: just a circle outline, minimal -->
+<circle cx="340" cy="340" r="200" fill="none" stroke="#3a6b3a" stroke-width="4" style="fill:none;stroke:rgb(58, 107, 58);color:rgb(0, 0, 0);stroke-width:4px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Single subtle equator band for dimensionality -->
+<ellipse cx="340" cy="340" rx="200" ry="40" fill="none" stroke="#3a6b3a" stroke-width="3" opacity="0.9" style="fill:none;stroke:rgb(58, 107, 58);color:rgb(0, 0, 0);stroke-width:3px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.9;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- One longitude arc -->
+<ellipse cx="340" cy="340" rx="40" ry="200" fill="none" stroke="#3a6b3a" stroke-width="3" opacity="0.7" style="fill:none;stroke:rgb(58, 107, 58);color:rgb(0, 0, 0);stroke-width:3px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.7;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- ===== THE LOOP — bold, geometric, 3-segment closed path ===== -->
+<!-- Conceived as a clean geodesic triangle: pole top, equator-left, equator-right -->
+
+<!-- Left leg: pole to lower-left -->
+<path d="M340 143 C310 210 270 272 220 330" fill="none" stroke="#2de8b0" stroke-width="7" stroke-linecap="round" style="fill:none;stroke:rgb(45, 232, 176);color:rgb(0, 0, 0);stroke-width:7px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Bottom arc: lower-left across to lower-right -->
+<path d="M220 330 C248 392 296 415 340 416 C384 415 432 392 460 330" fill="none" stroke="#2de8b0" stroke-width="7" stroke-linecap="round" style="fill:none;stroke:rgb(45, 232, 176);color:rgb(0, 0, 0);stroke-width:7px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Right leg: lower-right back to pole -->
+<path d="M460 330 C410 272 370 210 340 143" fill="none" stroke="#2de8b0" stroke-width="7" stroke-linecap="round" style="fill:none;stroke:rgb(45, 232, 176);color:rgb(0, 0, 0);stroke-width:7px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Pole anchor dot — gives the eye a place to rest -->
+<circle cx="340" cy="143" r="11" fill="#2de8b0" style="fill:rgb(45, 232, 176);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Small dots at the two base corners of the triangle -->
+<circle cx="220" cy="330" r="6" fill="#2de8b0" opacity="0.6" style="fill:rgb(45, 232, 176);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.6;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<circle cx="460" cy="330" r="6" fill="#2de8b0" opacity="0.6" style="fill:rgb(45, 232, 176);stroke:none;color:rgb(0, 0, 0);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.6;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+</svg>
