@@ -1,2 +1,2 @@
-# -holonomiclabs.github.io
+# holonomiclabs.github.io
 Main landing website repository
