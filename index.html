@@ -1,55 +1,464 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Holonomic Labs</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Holonomy</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: #071a18;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        font-family: sans-serif;
+      }
+      canvas {
+        display: block;
+        cursor: grab;
+      }
+      canvas:active {
+        cursor: grabbing;
+      }
+      .wm {
+        letter-spacing: 4px;
+        font-size: 18px;
+        font-weight: 500;
+        color: #6dd5c8;
+        margin-top: 10px;
+      }
+      .sub {
+        letter-spacing: 2px;
+        font-size: 10px;
+        color: #2a7a6e;
+        margin-top: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c" width="420" height="400"></canvas>
+    <div class="wm">HOLONOMY</div>
+    <div class="sub">recursively self-improving analytics</div>
 
-    body {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #0a0a0a;
-      color: #f0f0f0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
+    <script>
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+      const W = 420,
+        H = 400,
+        CX = W / 2,
+        CY = H / 2;
+      const phi = (1 + Math.sqrt(5)) / 2,
+        R = 115;
 
-    .container {
-      text-align: center;
-      padding: 2rem;
-    }
+      const rawV = [
+        [1, 1, 1],
+        [1, 1, -1],
+        [1, -1, 1],
+        [1, -1, -1],
+        [-1, 1, 1],
+        [-1, 1, -1],
+        [-1, -1, 1],
+        [-1, -1, -1],
+        [0, 1 / phi, phi],
+        [0, 1 / phi, -phi],
+        [0, -1 / phi, phi],
+        [0, -1 / phi, -phi],
+        [1 / phi, phi, 0],
+        [1 / phi, -phi, 0],
+        [-1 / phi, phi, 0],
+        [-1 / phi, -phi, 0],
+        [phi, 0, 1 / phi],
+        [phi, 0, -1 / phi],
+        [-phi, 0, 1 / phi],
+        [-phi, 0, -1 / phi],
+      ];
+      const V = rawV.map((v) => {
+        const l = Math.hypot(...v);
+        return v.map((x) => (x / l) * R);
+      });
 
-    h1 {
-      font-size: clamp(2rem, 6vw, 4rem);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 1rem;
-    }
+      const faces = [
+        [0, 8, 10, 2, 16],
+        [0, 16, 17, 1, 12],
+        [0, 12, 14, 4, 8],
+        [5, 14, 12, 1, 9],
+        [5, 9, 11, 7, 19],
+        [5, 19, 18, 4, 14],
+        [3, 17, 16, 2, 13],
+        [3, 13, 15, 7, 11],
+        [3, 11, 9, 1, 17],
+        [6, 18, 19, 7, 15],
+        [6, 15, 13, 2, 10],
+        [6, 10, 8, 4, 18],
+      ];
 
-    p {
-      font-size: 1.1rem;
-      color: #888;
-      max-width: 40ch;
-      margin: 0 auto 2rem;
-      line-height: 1.6;
-    }
+      const edgeMap = new Map();
+      faces.forEach((f) => {
+        for (let i = 0; i < 5; i++) {
+          const a = f[i],
+            b = f[(i + 1) % 5],
+            k = a < b ? `${a},${b}` : `${b},${a}`;
+          if (!edgeMap.has(k)) edgeMap.set(k, [a, b]);
+        }
+      });
+      const edges = [...edgeMap.values()];
+      const vertEdges = Array.from({ length: 20 }, () => []);
+      edges.forEach(([a, b], i) => {
+        vertEdges[a].push(i);
+        vertEdges[b].push(i);
+      });
 
-    .domain {
-      font-size: 0.9rem;
-      color: #444;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Holonomic Labs</h1>
-    <p>Something is coming. Stay tuned.</p>
-    <span class="domain">holonomic.dev</span>
-  </div>
-</body>
+      const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      const cross = (a, b) => [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+      ];
+      const add = (a, b) => a.map((x, i) => x + b[i]);
+      const sub = (a, b) => a.map((x, i) => x - b[i]);
+      const scl = (v, s) => v.map((x) => x * s);
+      const norm = (v) => {
+        const l = Math.hypot(...v);
+        return l < 1e-12 ? [1, 0, 0] : v.map((x) => x / l);
+      };
+
+      function rodrigues(v, k, theta) {
+        const c = Math.cos(theta),
+          s = Math.sin(theta),
+          d = dot(k, v);
+        return add(add(scl(v, c), scl(cross(k, v), s)), scl(k, d * (1 - c)));
+      }
+
+      function transportAlongChord(frame, p0, p1) {
+        const n0 = norm(p0),
+          n1 = norm(p1);
+        const axis = cross(n0, n1);
+        const axLen = Math.hypot(...axis);
+        if (axLen < 1e-12) return frame;
+        const angle = Math.asin(Math.min(1, axLen));
+        const transported = rodrigues(frame, scl(axis, 1 / axLen), angle);
+        return norm(sub(transported, scl(n1, dot(transported, n1))));
+      }
+
+      let ry = 0.5,
+        rx = 0.25,
+        vx = 0.0018,
+        vy = 0.007;
+      let dragging = false,
+        lastMx = 0,
+        lastMy = 0,
+        dmx = 0,
+        dmy = 0;
+
+      function rotY(v, a) {
+        const c = Math.cos(a),
+          s = Math.sin(a);
+        return [c * v[0] + s * v[2], v[1], -s * v[0] + c * v[2]];
+      }
+      function rotX(v, a) {
+        const c = Math.cos(a),
+          s = Math.sin(a);
+        return [v[0], c * v[1] - s * v[2], s * v[1] + c * v[2]];
+      }
+      function view(v) {
+        return rotX(rotY(v, ry), rx);
+      }
+      function proj(v) {
+        return [CX + v[0], CY - v[1]];
+      }
+
+      canvas.addEventListener("mousedown", (e) => {
+        dragging = true;
+        dmx = dmy = 0;
+        lastMx = e.clientX;
+        lastMy = e.clientY;
+      });
+      window.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        dmx = e.clientX - lastMx;
+        dmy = e.clientY - lastMy;
+        ry += dmx * 0.012;
+        rx += dmy * 0.012;
+        lastMx = e.clientX;
+        lastMy = e.clientY;
+      });
+      window.addEventListener("mouseup", () => {
+        if (!dragging) return;
+        dragging = false;
+        vy = dmx * 0.012;
+        vx = dmy * 0.012;
+      });
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          dragging = true;
+          dmx = dmy = 0;
+          lastMx = e.touches[0].clientX;
+          lastMy = e.touches[0].clientY;
+        },
+        { passive: true },
+      );
+      canvas.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!dragging) return;
+          dmx = e.touches[0].clientX - lastMx;
+          dmy = e.touches[0].clientY - lastMy;
+          ry += dmx * 0.012;
+          rx += dmy * 0.012;
+          lastMx = e.touches[0].clientX;
+          lastMy = e.touches[0].clientY;
+        },
+        { passive: true },
+      );
+      canvas.addEventListener("touchend", () => {
+        dragging = false;
+        vy = dmx * 0.012;
+        vx = dmy * 0.012;
+      });
+
+      const stars = Array.from({ length: 80 }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.2 + 0.2,
+        tw: Math.random() * Math.PI * 2,
+        sp: 0.02 + Math.random() * 0.03,
+      }));
+      const flares = [];
+      function spawnFlare(x, y, depth) {
+        for (let i = 0; i < 7; i++) {
+          const a = Math.random() * Math.PI * 2,
+            sp = 0.8 + Math.random() * 2;
+          flares.push({
+            x,
+            y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp,
+            life: 1,
+            decay: 0.04 + Math.random() * 0.03,
+            depth,
+          });
+        }
+      }
+      const edgeGlow = new Map();
+
+      function makeParticle(ei, fvIdx, t, base, dir, color) {
+        const e = edges[ei],
+          fv = e[fvIdx];
+        const a = V[e[0]],
+          b = V[e[1]];
+        const pos = add(scl(a, 1 - t), scl(b, t));
+        const surfNorm = norm(pos);
+        const tang = norm(sub(b, a));
+        let frame = sub(tang, scl(surfNorm, dot(tang, surfNorm)));
+        if (Math.hypot(...frame) < 0.01) {
+          const up = [0, 1, 0];
+          frame = sub(up, scl(surfNorm, dot(up, surfNorm)));
+        }
+        return { ei, fv, t, base, dir, color, frame: norm(frame), trail: [] };
+      }
+
+      const particles = [
+        makeParticle(0, 0, 0.0, 0.0055, 1, "#1aab97"),
+        makeParticle(10, 0, 0.4, 0.0045, -1, "#7de8db"),
+        makeParticle(22, 0, 0.7, 0.005, 1, "#0d8a7a"),
+      ];
+
+      function edgeEnds(p) {
+        const e = edges[p.ei];
+        const ai = e[0] === p.fv ? e[0] : e[1],
+          bi = e[0] === p.fv ? e[1] : e[0];
+        return [V[ai], V[bi], bi];
+      }
+
+      function getPos3D(p) {
+        const [a, b] = edgeEnds(p);
+        return add(scl(a, 1 - p.t), scl(b, p.t));
+      }
+
+      function stepParticle(p, speed) {
+        const [a, b, toVertIdx] = edgeEnds(p);
+        const t0 = p.t;
+        p.t += speed;
+
+        if (p.t < 1) {
+          const p0 = add(scl(a, 1 - t0), scl(b, t0));
+          const p1 = add(scl(a, 1 - p.t), scl(b, p.t));
+          p.frame = transportAlongChord(p.frame, p0, p1);
+          return -1;
+        }
+
+        p.t -= 1;
+        const p0 = add(scl(a, 1 - t0), scl(b, t0));
+        p.frame = transportAlongChord(p.frame, p0, b);
+        const nEnd = norm(b);
+        p.frame = norm(sub(p.frame, scl(nEnd, dot(p.frame, nEnd))));
+
+        const choices = vertEdges[toVertIdx].filter((i) => i !== p.ei);
+        p.ei = choices[Math.floor(Math.random() * choices.length)];
+        p.fv = toVertIdx;
+
+        return toVertIdx;
+      }
+
+      function drawRays(px, py, worldPos, worldFrame, depth) {
+        const RAY = 18;
+        const surfNorm = norm(worldPos);
+        const redDir = norm(cross(surfNorm, worldFrame));
+        const gCam = view(scl(worldFrame, RAY));
+        const rCam = view(scl(redDir, RAY));
+        const alpha = 0.35 + 0.65 * depth;
+
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+
+        ctx.strokeStyle = `rgba(80,220,120,${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(gCam[0], -gCam[1]);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(220,80,80,${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(rCam[0], -rCam[1]);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(220,240,255,${alpha})`;
+        ctx.fill();
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        if (!dragging) {
+          vy *= 0.997;
+          vx *= 0.997;
+          ry += vy;
+          rx += vx;
+        }
+        const spinMag = Math.sqrt(vx * vx + vy * vy);
+
+        stars.forEach((s) => {
+          s.tw += s.sp;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(180,255,240,${0.3 + 0.4 * Math.sin(s.tw)})`;
+          ctx.fill();
+        });
+
+        const tv = V.map((v) => view(v));
+        const pv = tv.map(proj);
+
+        edgeGlow.forEach((v, k) => {
+          const nv = v - 0.04;
+          nv <= 0 ? edgeGlow.delete(k) : edgeGlow.set(k, nv);
+        });
+
+        faces
+          .map((f) => ({
+            f,
+            z: f.reduce((s, vi) => s + tv[vi][2], 0) / f.length,
+          }))
+          .sort((a, b) => a.z - b.z)
+          .forEach(({ f, z }) => {
+            const d = (z / R + 1) / 2;
+            ctx.beginPath();
+            f.forEach((vi, i) =>
+              i
+                ? ctx.lineTo(pv[vi][0], pv[vi][1])
+                : ctx.moveTo(pv[vi][0], pv[vi][1]),
+            );
+            ctx.closePath();
+            ctx.fillStyle = `rgba(13,107,96,${0.06 + 0.1 * d})`;
+            ctx.fill();
+          });
+
+        edges.forEach(([a, b], i) => {
+          const d = ((tv[a][2] + tv[b][2]) / 2 / R + 1) / 2,
+            glow = edgeGlow.get(i) || 0;
+          ctx.beginPath();
+          ctx.moveTo(pv[a][0], pv[a][1]);
+          ctx.lineTo(pv[b][0], pv[b][1]);
+          ctx.strokeStyle =
+            glow > 0
+              ? `rgba(125,232,219,${0.15 + 0.5 * d + glow * 0.5})`
+              : `rgba(29,158,117,${0.15 + 0.5 * d})`;
+          ctx.lineWidth = 0.9 + glow * 2.5;
+          ctx.stroke();
+        });
+
+        particles.forEach((p) => {
+          const speed = Math.min(
+            0.04,
+            Math.max(0.001, p.base + p.dir * spinMag * 1.5),
+          );
+          const arrivedVert = stepParticle(p, speed);
+          edgeGlow.set(p.ei, Math.min(1, (edgeGlow.get(p.ei) || 0) + 0.3));
+
+          const pos3 = getPos3D(p);
+          const camPos = view(pos3);
+          const pos2 = proj(camPos);
+          const depth = (camPos[2] / R + 1) / 2;
+
+          if (arrivedVert >= 0)
+            spawnFlare(pv[arrivedVert][0], pv[arrivedVert][1], depth);
+
+          p.trail.push({ x: pos2[0], y: pos2[1], depth });
+          if (p.trail.length > 36) p.trail.shift();
+          p.trail.forEach((pt, i) => {
+            const frac = i / p.trail.length;
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 0.6 + 1.6 * frac, 0, Math.PI * 2);
+            ctx.globalAlpha = frac * 0.65 * pt.depth + frac * 0.1;
+            ctx.fillStyle = p.color;
+            ctx.fill();
+          });
+          ctx.globalAlpha = 1;
+
+          drawRays(pos2[0], pos2[1], pos3, p.frame, depth);
+        });
+
+        for (let i = flares.length - 1; i >= 0; i--) {
+          const f = flares[i];
+          f.x += f.vx;
+          f.y += f.vy;
+          f.vx *= 0.92;
+          f.vy *= 0.92;
+          f.life -= f.decay;
+          if (f.life <= 0) {
+            flares.splice(i, 1);
+            continue;
+          }
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, 1.5 * f.life, 0, Math.PI * 2);
+          ctx.globalAlpha = f.life * 0.8 * (0.3 + 0.7 * f.depth);
+          ctx.fillStyle = "#adfff5";
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      draw();
+    </script>
+  </body>
 </html>
