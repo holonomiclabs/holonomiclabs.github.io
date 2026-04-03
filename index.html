@@ -1,464 +1,800 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Holonomy</title>
-    <style>
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      html,
-      body {
-        height: 100%;
-      }
-      body {
-        background: #071a18;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        font-family: sans-serif;
-      }
-      canvas {
-        display: block;
-        cursor: grab;
-      }
-      canvas:active {
-        cursor: grabbing;
-      }
-      .wm {
-        letter-spacing: 4px;
-        font-size: 18px;
-        font-weight: 500;
-        color: #6dd5c8;
-        margin-top: 10px;
-      }
-      .sub {
-        letter-spacing: 2px;
-        font-size: 10px;
-        color: #2a7a6e;
-        margin-top: 4px;
-      }
-    </style>
-  </head>
-  <body>
-    <canvas id="c" width="420" height="400"></canvas>
-    <div class="wm">HOLONOMY</div>
-    <div class="sub">recursively self-improving analytics</div>
 
-    <script>
-      const canvas = document.getElementById("c");
-      const ctx = canvas.getContext("2d");
-      const W = 420,
-        H = 400,
-        CX = W / 2,
-        CY = H / 2;
-      const phi = (1 + Math.sqrt(5)) / 2,
-        R = 115;
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Holonomic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/vsalvino/computer-modern@main/fonts/serif.css" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-      const rawV = [
-        [1, 1, 1],
-        [1, 1, -1],
-        [1, -1, 1],
-        [1, -1, -1],
-        [-1, 1, 1],
-        [-1, 1, -1],
-        [-1, -1, 1],
-        [-1, -1, -1],
-        [0, 1 / phi, phi],
-        [0, 1 / phi, -phi],
-        [0, -1 / phi, phi],
-        [0, -1 / phi, -phi],
-        [1 / phi, phi, 0],
-        [1 / phi, -phi, 0],
-        [-1 / phi, phi, 0],
-        [-1 / phi, -phi, 0],
-        [phi, 0, 1 / phi],
-        [phi, 0, -1 / phi],
-        [-phi, 0, 1 / phi],
-        [-phi, 0, -1 / phi],
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      background: #050505;
+      min-height: 100vh;
+      font-family: "Computer Modern Serif", "CMU Serif", serif;
+    }
+
+    .hero {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      height: max(100vh, min(1200px, calc(100vw * 1200 / 1260)));
+      cursor: grab;
+    }
+
+    .hero-copy {
+      position: absolute;
+      top: clamp(1.25rem, 5vh, 3rem);
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(92vw, 48rem);
+      text-align: center;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .hero-copy a,
+    .wm-wrap {
+      pointer-events: auto;
+    }
+
+    .hero:active {
+      cursor: grabbing;
+    }
+
+    #stars {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    #c {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      display: block;
+      width: min(1260px, 100%);
+      max-height: 100%;
+      height: auto;
+      aspect-ratio: 1260 / 1200;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #c:active {
+      cursor: grabbing;
+    }
+
+    .wm-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .wm {
+      margin: 0;
+      font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+      letter-spacing: 0.2em;
+      font-size: clamp(2rem, 5.5vw, 3.25rem);
+      font-weight: normal;
+      color: #6dd5c8;
+      text-shadow: 0 0 2rem rgba(0, 0, 0, 0.85), 0 0 3rem rgba(0, 0, 0, 0.5);
+      cursor: help;
+      border-bottom: 1px dotted rgba(109, 213, 200, 0.45);
+      transition: color 0.2s ease, border-color 0.2s ease, text-shadow 0.2s ease;
+    }
+
+    .wm-wrap:hover .wm,
+    .wm-wrap:focus-within .wm {
+      color: #8fe8dc;
+      border-bottom-color: rgba(143, 232, 220, 0.65);
+      text-shadow: 0 0 1.5rem rgba(109, 213, 200, 0.35), 0 0 2rem rgba(0, 0, 0, 0.85);
+    }
+
+    .wm-tip {
+      position: absolute;
+      left: 50%;
+      top: calc(100% + 0.85rem);
+      transform: translateX(-50%) translateY(6px) scale(0.98);
+      width: max-content;
+      max-width: min(28rem, 86vw);
+      padding: 0.9rem 1.15rem 1rem;
+      text-align: left;
+      font-size: clamp(0.82rem, 1.75vw, 1.02rem);
+      font-weight: normal;
+      letter-spacing: 0.04em;
+      line-height: 1.5;
+      color: #c8ebe4;
+      background: linear-gradient(155deg, rgba(12, 42, 40, 0.97) 0%, rgba(6, 28, 26, 0.98) 100%);
+      border: 1px solid rgba(109, 213, 200, 0.38);
+      border-radius: 10px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+        0 0 28px rgba(29, 158, 117, 0.12);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0.24s linear;
+      z-index: 5;
+    }
+
+    .wm-tip::before {
+      content: "";
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 9px solid transparent;
+      border-bottom-color: rgba(14, 48, 45, 0.98);
+      filter: drop-shadow(0 -1px 0 rgba(109, 213, 200, 0.25));
+    }
+
+    .wm-wrap:hover .wm-tip,
+    .wm-wrap:focus-within .wm-tip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+
+    .sub {
+      letter-spacing: 0.08em;
+      font-size: clamp(1rem, 2.4vw, 1.35rem);
+      line-height: 1.45;
+      color: #4a9a8a;
+      margin-top: 0.75rem;
+      text-shadow: 0 0 1.5rem rgba(0, 0, 0, 0.9), 0 0 2rem rgba(0, 0, 0, 0.55);
+    }
+
+    .sub a {
+      color: #5bb8a8;
+      text-decoration: none;
+    }
+
+    .sub a:hover {
+      text-decoration: underline;
+    }
+
+    .hero-tag {
+      position: absolute;
+      bottom: clamp(1.25rem, 4vh, 2.5rem);
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(92vw, 48rem);
+      text-align: center;
+      z-index: 2;
+      pointer-events: none;
+      letter-spacing: 0.06em;
+      font-size: clamp(0.95rem, 2.1vw, 1.2rem);
+      line-height: 1.45;
+      color: #4a9a8a;
+      text-shadow: 0 0 1.5rem rgba(0, 0, 0, 0.9), 0 0 2rem rgba(0, 0, 0, 0.55);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="hero" id="hero">
+    <canvas id="stars" aria-hidden="true"></canvas>
+    <canvas id="c" width="1260" height="1200"></canvas>
+    <div class="hero-copy">
+      <div class="wm-wrap">
+        <h1 class="wm" id="wm-title" tabindex="0" aria-describedby="holonomy-tip">HOLONOMIC</h1>
+        <div class="wm-tip" id="holonomy-tip" role="tooltip">defn: the rotation a vector undergoes by traveling around a
+          closed
+          loop
+          on
+          a curved manifold</div>
+      </div>
+      <div class="sub"><a href="https://mathworld.wolfram.com/HolonomyGroup.html">Closed loops; open trajectory</a>
+      </div>
+    </div>
+    <p class="hero-tag">Collaborative, self-improving analytics for your whole organization</p>
+  </div>
+
+  <script>
+    const hero = document.getElementById("hero");
+    const starsCanvas = document.getElementById("stars");
+    const starsCtx = starsCanvas.getContext("2d");
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    const W = 1260,
+      H = 1200,
+      CX = W / 2,
+      CY = H / 2;
+    const phi = (1 + Math.sqrt(5)) / 2,
+      R = 345;
+
+    const rawV = [
+      [1, 1, 1],
+      [1, 1, -1],
+      [1, -1, 1],
+      [1, -1, -1],
+      [-1, 1, 1],
+      [-1, 1, -1],
+      [-1, -1, 1],
+      [-1, -1, -1],
+      [0, 1 / phi, phi],
+      [0, 1 / phi, -phi],
+      [0, -1 / phi, phi],
+      [0, -1 / phi, -phi],
+      [1 / phi, phi, 0],
+      [1 / phi, -phi, 0],
+      [-1 / phi, phi, 0],
+      [-1 / phi, -phi, 0],
+      [phi, 0, 1 / phi],
+      [phi, 0, -1 / phi],
+      [-phi, 0, 1 / phi],
+      [-phi, 0, -1 / phi],
+    ];
+    const V = rawV.map((v) => {
+      const l = Math.hypot(...v);
+      return v.map((x) => (x / l) * R);
+    });
+
+    const faces = [
+      [0, 8, 10, 2, 16],
+      [0, 16, 17, 1, 12],
+      [0, 12, 14, 4, 8],
+      [5, 14, 12, 1, 9],
+      [5, 9, 11, 7, 19],
+      [5, 19, 18, 4, 14],
+      [3, 17, 16, 2, 13],
+      [3, 13, 15, 7, 11],
+      [3, 11, 9, 1, 17],
+      [6, 18, 19, 7, 15],
+      [6, 15, 13, 2, 10],
+      [6, 10, 8, 4, 18],
+    ];
+
+    const edgeMap = new Map();
+    faces.forEach((f) => {
+      for (let i = 0; i < 5; i++) {
+        const a = f[i],
+          b = f[(i + 1) % 5],
+          k = a < b ? `${a},${b}` : `${b},${a}`;
+        if (!edgeMap.has(k)) edgeMap.set(k, [a, b]);
+      }
+    });
+    const edges = [...edgeMap.values()];
+    const vertEdges = Array.from({ length: 20 }, () => []);
+    edges.forEach(([a, b], i) => {
+      vertEdges[a].push(i);
+      vertEdges[b].push(i);
+    });
+
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const cross = (a, b) => [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0],
+    ];
+    const add = (a, b) => a.map((x, i) => x + b[i]);
+    const sub = (a, b) => a.map((x, i) => x - b[i]);
+    const scl = (v, s) => v.map((x) => x * s);
+    const norm = (v) => {
+      const l = Math.hypot(...v);
+      return l < 1e-12 ? [1, 0, 0] : v.map((x) => x / l);
+    };
+
+    function rodrigues(v, k, theta) {
+      const c = Math.cos(theta),
+        s = Math.sin(theta),
+        d = dot(k, v);
+      return add(add(scl(v, c), scl(cross(k, v), s)), scl(k, d * (1 - c)));
+    }
+
+    function transportAlongChord(frame, p0, p1) {
+      const n0 = norm(p0),
+        n1 = norm(p1);
+      const axis = cross(n0, n1);
+      const axLen = Math.hypot(...axis);
+      if (axLen < 1e-12) return frame;
+      const angle = Math.asin(Math.min(1, axLen));
+      const transported = rodrigues(frame, scl(axis, 1 / axLen), angle);
+      return norm(sub(transported, scl(n1, dot(transported, n1))));
+    }
+
+    const IDLE_TORQUE_MIN_MS = 1800;
+    const IDLE_TORQUE_JITTER_MS = 2200;
+    const IDLE_TORQUE_STRENGTH = 0.004;
+    const SPIN_FRICTION = 0.985;
+    const TRACKBALL_RADIUS = 0.92;
+
+    /** Right-handed rotation matrix: angle θ about unit axis (world space). */
+    function rotMatAxisAngle(axis, theta) {
+      const [x, y, z] = norm(axis);
+      const c = Math.cos(theta),
+        s = Math.sin(theta),
+        t = 1 - c;
+      return [
+        [t * x * x + c, t * x * y - s * z, t * x * z + s * y],
+        [t * x * y + s * z, t * y * y + c, t * y * z - s * x],
+        [t * x * z - s * y, t * y * z + s * x, t * z * z + c],
       ];
-      const V = rawV.map((v) => {
-        const l = Math.hypot(...v);
-        return v.map((x) => (x / l) * R);
-      });
+    }
 
-      const faces = [
-        [0, 8, 10, 2, 16],
-        [0, 16, 17, 1, 12],
-        [0, 12, 14, 4, 8],
-        [5, 14, 12, 1, 9],
-        [5, 9, 11, 7, 19],
-        [5, 19, 18, 4, 14],
-        [3, 17, 16, 2, 13],
-        [3, 13, 15, 7, 11],
-        [3, 11, 9, 1, 17],
-        [6, 18, 19, 7, 15],
-        [6, 15, 13, 2, 10],
-        [6, 10, 8, 4, 18],
+    function applyViewAxisAngle(M, axis, theta) {
+      return orthogonalize3(matMul3(rotMatAxisAngle(axis, theta), M));
+    }
+    function matMul3(A, B) {
+      const C = [
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
       ];
-
-      const edgeMap = new Map();
-      faces.forEach((f) => {
-        for (let i = 0; i < 5; i++) {
-          const a = f[i],
-            b = f[(i + 1) % 5],
-            k = a < b ? `${a},${b}` : `${b},${a}`;
-          if (!edgeMap.has(k)) edgeMap.set(k, [a, b]);
-        }
-      });
-      const edges = [...edgeMap.values()];
-      const vertEdges = Array.from({ length: 20 }, () => []);
-      edges.forEach(([a, b], i) => {
-        vertEdges[a].push(i);
-        vertEdges[b].push(i);
-      });
-
-      const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-      const cross = (a, b) => [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
+      for (let i = 0; i < 3; i++)
+        for (let j = 0; j < 3; j++)
+          for (let k = 0; k < 3; k++) C[i][j] += A[i][k] * B[k][j];
+      return C;
+    }
+    function matVec3(M, v) {
+      return [
+        M[0][0] * v[0] + M[0][1] * v[1] + M[0][2] * v[2],
+        M[1][0] * v[0] + M[1][1] * v[1] + M[1][2] * v[2],
+        M[2][0] * v[0] + M[2][1] * v[1] + M[2][2] * v[2],
       ];
-      const add = (a, b) => a.map((x, i) => x + b[i]);
-      const sub = (a, b) => a.map((x, i) => x - b[i]);
-      const scl = (v, s) => v.map((x) => x * s);
-      const norm = (v) => {
-        const l = Math.hypot(...v);
-        return l < 1e-12 ? [1, 0, 0] : v.map((x) => x / l);
+    }
+    /** Keep rows orthonormal (drift from repeated multiplies). */
+    function orthogonalize3(M) {
+      let r0 = [M[0][0], M[0][1], M[0][2]];
+      let r1 = [M[1][0], M[1][1], M[1][2]];
+      const l0 = Math.hypot(...r0);
+      r0 = r0.map((x) => x / l0);
+      r1 = sub(r1, scl(r0, dot(r0, r1)));
+      const l1 = Math.hypot(...r1);
+      r1 = r1.map((x) => x / l1);
+      const r2 = cross(r0, r1);
+      return [r0, r1, r2];
+    }
+
+    function clamp(x, lo, hi) {
+      return Math.max(lo, Math.min(hi, x));
+    }
+
+    function pointerToArcball(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const nx = (((clientX - rect.left) / rect.width) * 2 - 1) / TRACKBALL_RADIUS;
+      const ny = (1 - ((clientY - rect.top) / rect.height) * 2) / TRACKBALL_RADIUS;
+      const r2 = nx * nx + ny * ny;
+      if (r2 > 1) {
+        const s = 1 / Math.sqrt(r2);
+        return [nx * s, ny * s, 0];
+      }
+      return [nx, ny, Math.sqrt(1 - r2)];
+    }
+
+    function applyArcballDelta(M, fromVec, toVec) {
+      const axis = cross(fromVec, toVec);
+      const axisLen = Math.hypot(...axis);
+      if (axisLen < 1e-8) return { M, axis: [0, 1, 0], angle: 0 };
+      const angle = Math.atan2(axisLen, clamp(dot(fromVec, toVec), -1, 1));
+      const axisUnit = scl(axis, 1 / axisLen);
+      return {
+        M: applyViewAxisAngle(M, axisUnit, angle),
+        axis: axisUnit,
+        angle,
       };
+    }
 
-      function rodrigues(v, k, theta) {
-        const c = Math.cos(theta),
-          s = Math.sin(theta),
-          d = dot(k, v);
-        return add(add(scl(v, c), scl(cross(k, v), s)), scl(k, d * (1 - c)));
-      }
+    /** viewRot maps world coordinates into camera coordinates. */
+    let viewRot = orthogonalize3(
+      matMul3(rotMatAxisAngle([1, 0, 0], 0.25), rotMatAxisAngle([0, 1, 0], 0.5)),
+    );
+    let spinAxis = norm([0.2, 1, 0.1]),
+      spinTheta = 0.007;
+    let dragging = false;
+    let lastArcball = [0, 0, 1];
+    let nextIdleTorqueAt =
+      performance.now() + IDLE_TORQUE_MIN_MS + Math.random() * IDLE_TORQUE_JITTER_MS;
 
-      function transportAlongChord(frame, p0, p1) {
-        const n0 = norm(p0),
-          n1 = norm(p1);
-        const axis = cross(n0, n1);
-        const axLen = Math.hypot(...axis);
-        if (axLen < 1e-12) return frame;
-        const angle = Math.asin(Math.min(1, axLen));
-        const transported = rodrigues(frame, scl(axis, 1 / axLen), angle);
-        return norm(sub(transported, scl(n1, dot(transported, n1))));
-      }
+    function scheduleNextIdleTorque() {
+      nextIdleTorqueAt =
+        performance.now() +
+        IDLE_TORQUE_MIN_MS +
+        Math.random() * IDLE_TORQUE_JITTER_MS;
+    }
 
-      let ry = 0.5,
-        rx = 0.25,
-        vx = 0.0018,
-        vy = 0.007;
-      let dragging = false,
-        lastMx = 0,
-        lastMy = 0,
-        dmx = 0,
-        dmy = 0;
+    function view(v) {
+      return matVec3(viewRot, v);
+    }
+    function proj(v) {
+      return [CX + v[0], CY - v[1]];
+    }
 
-      function rotY(v, a) {
-        const c = Math.cos(a),
-          s = Math.sin(a);
-        return [c * v[0] + s * v[2], v[1], -s * v[0] + c * v[2]];
-      }
-      function rotX(v, a) {
-        const c = Math.cos(a),
-          s = Math.sin(a);
-        return [v[0], c * v[1] - s * v[2], s * v[1] + c * v[2]];
-      }
-      function view(v) {
-        return rotX(rotY(v, ry), rx);
-      }
-      function proj(v) {
-        return [CX + v[0], CY - v[1]];
-      }
-
-      canvas.addEventListener("mousedown", (e) => {
+    hero.addEventListener("mousedown", (e) => {
+      dragging = true;
+      lastArcball = pointerToArcball(e.clientX, e.clientY);
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const arcball = pointerToArcball(e.clientX, e.clientY);
+      const delta = applyArcballDelta(viewRot, lastArcball, arcball);
+      viewRot = delta.M;
+      spinAxis = delta.axis;
+      spinTheta = delta.angle;
+      lastArcball = arcball;
+    });
+    window.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      scheduleNextIdleTorque();
+    });
+    hero.addEventListener(
+      "touchstart",
+      (e) => {
         dragging = true;
-        dmx = dmy = 0;
-        lastMx = e.clientX;
-        lastMy = e.clientY;
-      });
-      window.addEventListener("mousemove", (e) => {
+        lastArcball = pointerToArcball(e.touches[0].clientX, e.touches[0].clientY);
+      },
+      { passive: true },
+    );
+    hero.addEventListener(
+      "touchmove",
+      (e) => {
         if (!dragging) return;
-        dmx = e.clientX - lastMx;
-        dmy = e.clientY - lastMy;
-        ry += dmx * 0.012;
-        rx += dmy * 0.012;
-        lastMx = e.clientX;
-        lastMy = e.clientY;
-      });
-      window.addEventListener("mouseup", () => {
-        if (!dragging) return;
-        dragging = false;
-        vy = dmx * 0.012;
-        vx = dmy * 0.012;
-      });
-      canvas.addEventListener(
-        "touchstart",
-        (e) => {
-          dragging = true;
-          dmx = dmy = 0;
-          lastMx = e.touches[0].clientX;
-          lastMy = e.touches[0].clientY;
-        },
-        { passive: true },
-      );
-      canvas.addEventListener(
-        "touchmove",
-        (e) => {
-          if (!dragging) return;
-          dmx = e.touches[0].clientX - lastMx;
-          dmy = e.touches[0].clientY - lastMy;
-          ry += dmx * 0.012;
-          rx += dmy * 0.012;
-          lastMx = e.touches[0].clientX;
-          lastMy = e.touches[0].clientY;
-        },
-        { passive: true },
-      );
-      canvas.addEventListener("touchend", () => {
-        dragging = false;
-        vy = dmx * 0.012;
-        vx = dmy * 0.012;
-      });
+        const arcball = pointerToArcball(e.touches[0].clientX, e.touches[0].clientY);
+        const delta = applyArcballDelta(viewRot, lastArcball, arcball);
+        viewRot = delta.M;
+        spinAxis = delta.axis;
+        spinTheta = delta.angle;
+        lastArcball = arcball;
+      },
+      { passive: true },
+    );
+    hero.addEventListener("touchend", () => {
+      if (!dragging) return;
+      dragging = false;
+      scheduleNextIdleTorque();
+    });
 
-      const stars = Array.from({ length: 80 }, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H,
-        r: Math.random() * 1.2 + 0.2,
+    let stars = [];
+    const STAR_DENSITY = 320 / (1260 * 1200);
+
+    function initStars(sw, sh) {
+      const n = Math.max(
+        120,
+        Math.round(sw * sh * STAR_DENSITY),
+      );
+      stars = Array.from({ length: n }, () => ({
+        x: Math.random() * sw,
+        y: Math.random() * sh,
+        r: Math.random() * 3.6 + 0.6,
         tw: Math.random() * Math.PI * 2,
         sp: 0.02 + Math.random() * 0.03,
       }));
-      const flares = [];
-      function spawnFlare(x, y, depth) {
-        for (let i = 0; i < 7; i++) {
-          const a = Math.random() * Math.PI * 2,
-            sp = 0.8 + Math.random() * 2;
-          flares.push({
-            x,
-            y,
-            vx: Math.cos(a) * sp,
-            vy: Math.sin(a) * sp,
-            life: 1,
-            decay: 0.04 + Math.random() * 0.03,
-            depth,
-          });
-        }
+    }
+
+    function resizeStarsCanvas() {
+      const rect = starsCanvas.getBoundingClientRect();
+      const sw = rect.width;
+      const sh = rect.height;
+      if (sw < 1 || sh < 1) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const bw = Math.round(sw * dpr);
+      const bh = Math.round(sh * dpr);
+      if (starsCanvas.width !== bw || starsCanvas.height !== bh) {
+        starsCanvas.width = bw;
+        starsCanvas.height = bh;
+        starsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
-      const edgeGlow = new Map();
+      initStars(sw, sh);
+    }
 
-      function makeParticle(ei, fvIdx, t, base, dir, color) {
-        const e = edges[ei],
-          fv = e[fvIdx];
-        const a = V[e[0]],
-          b = V[e[1]];
-        const pos = add(scl(a, 1 - t), scl(b, t));
-        const surfNorm = norm(pos);
-        const tang = norm(sub(b, a));
-        let frame = sub(tang, scl(surfNorm, dot(tang, surfNorm)));
-        if (Math.hypot(...frame) < 0.01) {
-          const up = [0, 1, 0];
-          frame = sub(up, scl(surfNorm, dot(up, surfNorm)));
-        }
-        return { ei, fv, t, base, dir, color, frame: norm(frame), trail: [] };
+    function drawStars() {
+      const rect = starsCanvas.getBoundingClientRect();
+      const sw = rect.width;
+      const sh = rect.height;
+      starsCtx.clearRect(0, 0, sw, sh);
+      stars.forEach((s) => {
+        s.tw += s.sp;
+        starsCtx.beginPath();
+        starsCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        starsCtx.fillStyle = `rgba(255,255,255,${0.35 + 0.45 * Math.sin(s.tw)})`;
+        starsCtx.fill();
+      });
+    }
+    const flares = [];
+    function spawnFlare(x, y, depth) {
+      for (let i = 0; i < 7; i++) {
+        const a = Math.random() * Math.PI * 2,
+          sp = 0.8 + Math.random() * 2;
+        flares.push({
+          x,
+          y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: 1,
+          decay: 0.04 + Math.random() * 0.03,
+          depth,
+        });
       }
+    }
+    const edgeGlow = new Map();
 
-      const particles = [
-        makeParticle(0, 0, 0.0, 0.0055, 1, "#1aab97"),
-        makeParticle(10, 0, 0.4, 0.0045, -1, "#7de8db"),
-        makeParticle(22, 0, 0.7, 0.005, 1, "#0d8a7a"),
-      ];
-
-      function edgeEnds(p) {
-        const e = edges[p.ei];
-        const ai = e[0] === p.fv ? e[0] : e[1],
-          bi = e[0] === p.fv ? e[1] : e[0];
-        return [V[ai], V[bi], bi];
+    function makeParticle(ei, fvIdx, t, base, dir, color) {
+      const e = edges[ei],
+        fv = e[fvIdx];
+      const a = V[e[0]],
+        b = V[e[1]];
+      const pos = add(scl(a, 1 - t), scl(b, t));
+      const surfNorm = norm(pos);
+      const tang = norm(sub(b, a));
+      let frame = sub(tang, scl(surfNorm, dot(tang, surfNorm)));
+      if (Math.hypot(...frame) < 0.01) {
+        const up = [0, 1, 0];
+        frame = sub(up, scl(surfNorm, dot(up, surfNorm)));
       }
+      return {
+        ei,
+        fv,
+        t,
+        base,
+        dir,
+        color,
+        frame: norm(frame),
+        trail: [],
+        edgeHistory: [ei],
+      };
+    }
 
-      function getPos3D(p) {
-        const [a, b] = edgeEnds(p);
-        return add(scl(a, 1 - p.t), scl(b, p.t));
-      }
+    const particlePointRgbs = [
+      [232, 85, 85],
+      [85, 232, 136],
+      [85, 136, 238],
+    ];
 
-      function stepParticle(p, speed) {
-        const [a, b, toVertIdx] = edgeEnds(p);
-        const t0 = p.t;
-        p.t += speed;
+    const particles = [
+      makeParticle(0, 0, 0.0, 0.0055, 1, "#e85555"),
+      makeParticle(10, 0, 0.4, 0.0045, -1, "#55e888"),
+      makeParticle(22, 0, 0.7, 0.005, 1, "#5588ee"),
+    ];
 
-        if (p.t < 1) {
-          const p0 = add(scl(a, 1 - t0), scl(b, t0));
-          const p1 = add(scl(a, 1 - p.t), scl(b, p.t));
-          p.frame = transportAlongChord(p.frame, p0, p1);
-          return -1;
-        }
+    /** Oldest slot weakest, newest (current edge) strongest. */
+    function fadeForHistorySlot(histIdx, len) {
+      if (len <= 1) return 1;
+      if (len === 2) return histIdx === 0 ? 0.85 : 1;
+      return [0.7, 0.85, 1][histIdx];
+    }
 
-        p.t -= 1;
+    function edgeEnds(p) {
+      const e = edges[p.ei];
+      const ai = e[0] === p.fv ? e[0] : e[1],
+        bi = e[0] === p.fv ? e[1] : e[0];
+      return [V[ai], V[bi], bi];
+    }
+
+    function getPos3D(p) {
+      const [a, b] = edgeEnds(p);
+      return add(scl(a, 1 - p.t), scl(b, p.t));
+    }
+
+    function stepParticle(p, speed) {
+      const [a, b, toVertIdx] = edgeEnds(p);
+      const t0 = p.t;
+      p.t += speed;
+
+      if (p.t < 1) {
         const p0 = add(scl(a, 1 - t0), scl(b, t0));
-        p.frame = transportAlongChord(p.frame, p0, b);
-        const nEnd = norm(b);
-        p.frame = norm(sub(p.frame, scl(nEnd, dot(p.frame, nEnd))));
-
-        const choices = vertEdges[toVertIdx].filter((i) => i !== p.ei);
-        p.ei = choices[Math.floor(Math.random() * choices.length)];
-        p.fv = toVertIdx;
-
-        return toVertIdx;
+        const p1 = add(scl(a, 1 - p.t), scl(b, p.t));
+        p.frame = transportAlongChord(p.frame, p0, p1);
+        return -1;
       }
 
-      function drawRays(px, py, worldPos, worldFrame, depth) {
-        const RAY = 18;
-        const surfNorm = norm(worldPos);
-        const redDir = norm(cross(surfNorm, worldFrame));
-        const gCam = view(scl(worldFrame, RAY));
-        const rCam = view(scl(redDir, RAY));
-        const alpha = 0.35 + 0.65 * depth;
+      p.t -= 1;
+      const p0 = add(scl(a, 1 - t0), scl(b, t0));
+      p.frame = transportAlongChord(p.frame, p0, b);
+      const nEnd = norm(b);
+      p.frame = norm(sub(p.frame, scl(nEnd, dot(p.frame, nEnd))));
 
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.lineWidth = 2;
-        ctx.lineCap = "round";
+      const choices = vertEdges[toVertIdx].filter((i) => i !== p.ei);
+      p.ei = choices[Math.floor(Math.random() * choices.length)];
+      p.fv = toVertIdx;
+      p.edgeHistory.push(p.ei);
+      while (p.edgeHistory.length > 3) p.edgeHistory.shift();
 
-        ctx.strokeStyle = `rgba(80,220,120,${alpha})`;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(gCam[0], -gCam[1]);
-        ctx.stroke();
+      return toVertIdx;
+    }
 
-        ctx.strokeStyle = `rgba(220,80,80,${alpha})`;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(rCam[0], -rCam[1]);
-        ctx.stroke();
+    function drawRays(px, py, worldPos, worldFrame, depth, pointRgb) {
+      const RAY = 54;
+      const surfNorm = norm(worldPos);
+      const redDir = norm(cross(surfNorm, worldFrame));
+      const gCam = view(scl(worldFrame, RAY));
+      const rCam = view(scl(redDir, RAY));
+      const alpha = 0.35 + 0.65 * depth;
 
-        ctx.beginPath();
-        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(220,240,255,${alpha})`;
-        ctx.fill();
-        ctx.restore();
-        ctx.globalAlpha = 1;
-      }
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
 
-      function draw() {
-        ctx.clearRect(0, 0, W, H);
-        if (!dragging) {
-          vy *= 0.997;
-          vx *= 0.997;
-          ry += vy;
-          rx += vx;
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(gCam[0], -gCam[1]);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(rCam[0], -rCam[1]);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${pointRgb[0]},${pointRgb[1]},${pointRgb[2]},${alpha})`;
+      ctx.fill();
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    function draw() {
+      drawStars();
+      ctx.clearRect(0, 0, W, H);
+      if (!dragging) {
+        spinTheta *= SPIN_FRICTION;
+        const now = performance.now();
+        if (now >= nextIdleTorqueAt) {
+          spinAxis = norm(
+            add(spinAxis, [
+              (Math.random() - 0.5) * 0.35,
+              (Math.random() - 0.5) * 0.35,
+              (Math.random() - 0.5) * 0.35,
+            ]),
+          );
+          spinTheta += (Math.random() - 0.5) * 2 * IDLE_TORQUE_STRENGTH;
+          scheduleNextIdleTorque();
         }
-        const spinMag = Math.sqrt(vx * vx + vy * vy);
+        if (Math.abs(spinTheta) > 1e-5) {
+          viewRot = applyViewAxisAngle(viewRot, spinAxis, spinTheta);
+        }
+      }
+      const spinMag = Math.abs(spinTheta);
 
-        stars.forEach((s) => {
-          s.tw += s.sp;
+      const tv = V.map((v) => view(v));
+      const pv = tv.map(proj);
+
+      edgeGlow.forEach((v, k) => {
+        const nv = v - 0.04;
+        nv <= 0 ? edgeGlow.delete(k) : edgeGlow.set(k, nv);
+      });
+
+      faces
+        .map((f) => ({
+          f,
+          z: f.reduce((s, vi) => s + tv[vi][2], 0) / f.length,
+        }))
+        .sort((a, b) => a.z - b.z)
+        .forEach(({ f, z }) => {
+          const d = (z / R + 1) / 2;
           ctx.beginPath();
-          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(180,255,240,${0.3 + 0.4 * Math.sin(s.tw)})`;
+          f.forEach((vi, i) =>
+            i
+              ? ctx.lineTo(pv[vi][0], pv[vi][1])
+              : ctx.moveTo(pv[vi][0], pv[vi][1]),
+          );
+          ctx.closePath();
+          ctx.fillStyle = `rgba(13,107,96,${0.06 + 0.1 * d})`;
           ctx.fill();
         });
 
-        const tv = V.map((v) => view(v));
-        const pv = tv.map(proj);
+      const edgeContrib = new Map();
+      const particleArrivals = [];
 
-        edgeGlow.forEach((v, k) => {
-          const nv = v - 0.04;
-          nv <= 0 ? edgeGlow.delete(k) : edgeGlow.set(k, nv);
+      particles.forEach((p, pi) => {
+        const speed = Math.min(
+          0.04,
+          Math.max(0.001, p.base + p.dir * spinMag * 1.5),
+        );
+        particleArrivals.push(stepParticle(p, speed));
+        edgeGlow.set(p.ei, Math.min(1, (edgeGlow.get(p.ei) || 0) + 0.3));
+
+        const rgb = particlePointRgbs[pi];
+        const len = p.edgeHistory.length;
+        p.edgeHistory.forEach((ei, histIdx) => {
+          const fade = fadeForHistorySlot(histIdx, len);
+          const acc = edgeContrib.get(ei) || { r: 0, g: 0, b: 0 };
+          acc.r += rgb[0] * fade;
+          acc.g += rgb[1] * fade;
+          acc.b += rgb[2] * fade;
+          edgeContrib.set(ei, acc);
         });
+      });
 
-        faces
-          .map((f) => ({
-            f,
-            z: f.reduce((s, vi) => s + tv[vi][2], 0) / f.length,
-          }))
-          .sort((a, b) => a.z - b.z)
-          .forEach(({ f, z }) => {
-            const d = (z / R + 1) / 2;
-            ctx.beginPath();
-            f.forEach((vi, i) =>
-              i
-                ? ctx.lineTo(pv[vi][0], pv[vi][1])
-                : ctx.moveTo(pv[vi][0], pv[vi][1]),
-            );
-            ctx.closePath();
-            ctx.fillStyle = `rgba(13,107,96,${0.06 + 0.1 * d})`;
-            ctx.fill();
-          });
-
-        edges.forEach(([a, b], i) => {
-          const d = ((tv[a][2] + tv[b][2]) / 2 / R + 1) / 2,
-            glow = edgeGlow.get(i) || 0;
-          ctx.beginPath();
-          ctx.moveTo(pv[a][0], pv[a][1]);
-          ctx.lineTo(pv[b][0], pv[b][1]);
+      edges.forEach(([a, b], i) => {
+        const d = ((tv[a][2] + tv[b][2]) / 2 / R + 1) / 2,
+          glow = edgeGlow.get(i) || 0;
+        const c = edgeContrib.get(i);
+        const hasPath = c && c.r + c.g + c.b > 0.5;
+        ctx.beginPath();
+        ctx.moveTo(pv[a][0], pv[a][1]);
+        ctx.lineTo(pv[b][0], pv[b][1]);
+        if (hasPath) {
+          const r = Math.min(255, c.r),
+            g = Math.min(255, c.g),
+            b = Math.min(255, c.b);
+          ctx.strokeStyle = `rgba(${r},${g},${b},${0.22 + 0.52 * d + glow * 0.48
+            })`;
+        } else {
           ctx.strokeStyle =
             glow > 0
               ? `rgba(125,232,219,${0.15 + 0.5 * d + glow * 0.5})`
               : `rgba(29,158,117,${0.15 + 0.5 * d})`;
-          ctx.lineWidth = 0.9 + glow * 2.5;
-          ctx.stroke();
-        });
-
-        particles.forEach((p) => {
-          const speed = Math.min(
-            0.04,
-            Math.max(0.001, p.base + p.dir * spinMag * 1.5),
-          );
-          const arrivedVert = stepParticle(p, speed);
-          edgeGlow.set(p.ei, Math.min(1, (edgeGlow.get(p.ei) || 0) + 0.3));
-
-          const pos3 = getPos3D(p);
-          const camPos = view(pos3);
-          const pos2 = proj(camPos);
-          const depth = (camPos[2] / R + 1) / 2;
-
-          if (arrivedVert >= 0)
-            spawnFlare(pv[arrivedVert][0], pv[arrivedVert][1], depth);
-
-          p.trail.push({ x: pos2[0], y: pos2[1], depth });
-          if (p.trail.length > 36) p.trail.shift();
-          p.trail.forEach((pt, i) => {
-            const frac = i / p.trail.length;
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 0.6 + 1.6 * frac, 0, Math.PI * 2);
-            ctx.globalAlpha = frac * 0.65 * pt.depth + frac * 0.1;
-            ctx.fillStyle = p.color;
-            ctx.fill();
-          });
-          ctx.globalAlpha = 1;
-
-          drawRays(pos2[0], pos2[1], pos3, p.frame, depth);
-        });
-
-        for (let i = flares.length - 1; i >= 0; i--) {
-          const f = flares[i];
-          f.x += f.vx;
-          f.y += f.vy;
-          f.vx *= 0.92;
-          f.vy *= 0.92;
-          f.life -= f.decay;
-          if (f.life <= 0) {
-            flares.splice(i, 1);
-            continue;
-          }
-          ctx.beginPath();
-          ctx.arc(f.x, f.y, 1.5 * f.life, 0, Math.PI * 2);
-          ctx.globalAlpha = f.life * 0.8 * (0.3 + 0.7 * f.depth);
-          ctx.fillStyle = "#adfff5";
-          ctx.fill();
-          ctx.globalAlpha = 1;
         }
+        ctx.lineWidth = 2.7 + glow * 7.5 + (hasPath ? 1.1 : 0);
+        ctx.stroke();
+      });
 
-        requestAnimationFrame(draw);
+      particles.forEach((p, pi) => {
+        const arrivedVert = particleArrivals[pi];
+
+        const pos3 = getPos3D(p);
+        const camPos = view(pos3);
+        const pos2 = proj(camPos);
+        const depth = (camPos[2] / R + 1) / 2;
+
+        if (arrivedVert >= 0)
+          spawnFlare(pv[arrivedVert][0], pv[arrivedVert][1], depth);
+
+        p.trail.push({ x: pos2[0], y: pos2[1], depth });
+        if (p.trail.length > 36) p.trail.shift();
+        p.trail.forEach((pt, i) => {
+          const frac = i / p.trail.length;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 1.8 + 4.8 * frac, 0, Math.PI * 2);
+          ctx.globalAlpha = frac * 0.65 * pt.depth + frac * 0.1;
+          ctx.fillStyle = p.color;
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+
+        drawRays(pos2[0], pos2[1], pos3, p.frame, depth, particlePointRgbs[pi]);
+      });
+
+      for (let i = flares.length - 1; i >= 0; i--) {
+        const f = flares[i];
+        f.x += f.vx;
+        f.y += f.vy;
+        f.vx *= 0.92;
+        f.vy *= 0.92;
+        f.life -= f.decay;
+        if (f.life <= 0) {
+          flares.splice(i, 1);
+          continue;
+        }
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, 4.5 * f.life, 0, Math.PI * 2);
+        ctx.globalAlpha = f.life * 0.8 * (0.3 + 0.7 * f.depth);
+        ctx.fillStyle = "#adfff5";
+        ctx.fill();
+        ctx.globalAlpha = 1;
       }
 
-      draw();
-    </script>
-  </body>
+      requestAnimationFrame(draw);
+    }
+
+    window.addEventListener("resize", resizeStarsCanvas);
+    new ResizeObserver(resizeStarsCanvas).observe(hero);
+    resizeStarsCanvas();
+    draw();
+  </script>
+</body>
+
 </html>
