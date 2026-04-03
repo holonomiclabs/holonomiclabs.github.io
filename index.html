@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/vsalvino/computer-modern@main/fonts/serif.css" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet" />
   <style>
     *,
     *::before,
@@ -203,7 +204,8 @@
           on
           a curved manifold</div>
       </div>
-      <div class="sub"><a href="https://mathworld.wolfram.com/HolonomyGroup.html">Closed loops; open trajectory</a>
+      <div class="sub"><a href="https://mathworld.wolfram.com/HolonomyGroup.html">Closed analysis loops; open system
+          trajectory</a>
       </div>
     </div>
     <p class="hero-tag">Collaborative, self-improving analytics for your whole organization</p>
@@ -464,21 +466,436 @@
       scheduleNextIdleTorque();
     });
 
-    let stars = [];
-    const STAR_DENSITY = 320 / (1260 * 1200);
+    // ── ASCII Art Background ──
+    const MONO = '11px "JetBrains Mono","Courier New",monospace';
+    let charW = 6.6;
+    const LINE_H = 14;
+    const TILE_CHARS = 38;
+    const TILE_LINES = 16;
+    const TPAL = ['#1d9e75', '#4a9a8a', '#2a8a7a', '#3a9a88', '#5bb8a8'];
 
-    function initStars(sw, sh) {
-      const n = Math.max(
-        120,
-        Math.round(sw * sh * STAR_DENSITY),
-      );
-      stars = Array.from({ length: n }, () => ({
-        x: Math.random() * sw,
-        y: Math.random() * sh,
-        r: Math.random() * 3.6 + 0.6,
-        tw: Math.random() * Math.PI * 2,
-        sp: 0.02 + Math.random() * 0.03,
-      }));
+    let GCOLS = 0, GROWS = 0;
+    let fluidDen, fluidTmp;
+    let contentGrid = [];
+    let cellAspect = 0.47, cellAspect2 = 0.22;
+    let nextContentRefresh = 0;
+    const FLUID_EMITTERS = [
+      { cx: 0.10, cy: 0.20, orbitR: 0.18, freq: 0.20, phase: 0.0, str: 0.5 },
+      { cx: 0.90, cy: 0.25, orbitR: 0.20, freq: 0.25, phase: 2.0, str: 0.5 },
+      { cx: 0.15, cy: 0.75, orbitR: 0.22, freq: 0.18, phase: 4.2, str: 0.55 },
+      { cx: 0.85, cy: 0.70, orbitR: 0.18, freq: 0.22, phase: 1.0, str: 0.45 },
+      { cx: 0.50, cy: 0.08, orbitR: 0.16, freq: 0.30, phase: 3.0, str: 0.45 },
+      { cx: 0.30, cy: 0.45, orbitR: 0.24, freq: 0.15, phase: 5.0, str: 0.4 },
+      { cx: 0.70, cy: 0.50, orbitR: 0.24, freq: 0.17, phase: 0.8, str: 0.4 },
+      { cx: 0.50, cy: 0.90, orbitR: 0.20, freq: 0.22, phase: 2.5, str: 0.45 },
+      { cx: 0.25, cy: 0.10, orbitR: 0.15, freq: 0.28, phase: 1.5, str: 0.4 },
+      { cx: 0.75, cy: 0.10, orbitR: 0.15, freq: 0.26, phase: 3.8, str: 0.4 },
+      { cx: 0.25, cy: 0.90, orbitR: 0.15, freq: 0.24, phase: 5.5, str: 0.4 },
+      { cx: 0.75, cy: 0.90, orbitR: 0.15, freq: 0.20, phase: 0.3, str: 0.4 },
+      { cx: 0.50, cy: 0.50, orbitR: 0.28, freq: 0.12, phase: 1.8, str: 0.35 },
+    ];
+
+    const _p = (a) => a[(Math.random() * a.length) | 0];
+    const _ri = (a, b) => a + ((Math.random() * (b - a + 1)) | 0);
+    const _rf = (a, b, d) => (a + Math.random() * (b - a)).toFixed(d ?? 2);
+    const _lp = (s, n) => { s = '' + s; while (s.length < n) s = ' ' + s; return s; };
+    const _rp = (s, n) => { s = '' + s; while (s.length < n) s += ' '; return s; };
+    const _clip = (ls) => ls.map(l => l.slice(0, TILE_CHARS)).slice(0, TILE_LINES);
+
+    function genDataframe() {
+      const schemas = [
+        ['user_id', 'sessions', 'revenue'],
+        ['date', 'dau', 'retention'],
+        ['feature', 'coef', 'p_value'],
+        ['cohort', 'n_users', 'ltv'],
+        ['ticker', 'price', 'volume'],
+        ['model', 'f1', 'auc'],
+        ['endpoint', 'p50_ms', 'err_pct'],
+        ['segment', 'ctr', 'conv_rate'],
+      ];
+      const cols = _p(schemas);
+      const cw = cols.map(c => Math.max(c.length + 1, 8));
+      const lines = [];
+      lines.push(cols.map((c, i) => _rp(c, cw[i])).join('\u2502'));
+      lines.push(cw.map(w => '\u2500'.repeat(w)).join('\u253C'));
+      for (let r = 0, n = _ri(5, 10); r < n; r++) {
+        lines.push(cols.map((_, i) => _rp(_rf(0.01, 9999, _ri(0, 3)), cw[i])).join('\u2502'));
+      }
+      lines.push(`[${_ri(1e3, 1e5)} rows \u00D7 ${cols.length} cols]`);
+      return { lines: _clip(lines), color: _p(TPAL) };
+    }
+
+    function genBarChart() {
+      const lbls = _p([
+        ['APAC', 'EMEA', 'AMER', 'LATAM'],
+        ['Q1', 'Q2', 'Q3', 'Q4'],
+        ['web', 'ios', 'droid', 'api'],
+        ['xgb', 'lgb', 'cat', 'rf'],
+        ['cache', 'db', 'api', 's3'],
+        ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+      ]);
+      const title = _p(['revenue by region', 'requests/sec',
+        'model accuracy', 'latency_p99', 'daily active users', 'throughput']);
+      const vals = lbls.map(() => Math.random());
+      const mx = Math.max(...vals);
+      const lw = Math.max(...lbls.map(l => l.length));
+      const bw = TILE_CHARS - lw - 3;
+      const lines = [title, '\u2500'.repeat(Math.min(title.length + 2, TILE_CHARS))];
+      lbls.forEach((l, i) => {
+        const n = Math.max(1, Math.round((vals[i] / mx) * bw));
+        lines.push(_rp(l, lw) + ' ' + '\u2588'.repeat(n));
+      });
+      return { lines: _clip(lines), color: _p(TPAL) };
+    }
+
+    function genSparkline() {
+      const sparks = '\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588';
+      const title = _p(['cpu %', 'mem_gb', 'req/s', 'loss',
+        'grad_norm', 'throughput', 'latency', 'gpu_util']);
+      const lines = [title];
+      for (let r = 0; r < _ri(2, 4); r++) {
+        let s = '';
+        let v = Math.random();
+        for (let i = 0; i < TILE_CHARS - 2; i++) {
+          v = Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.3));
+          s += sparks[(v * 7.99) | 0];
+        }
+        lines.push(s);
+      }
+      lines.push(`peak: ${_rf(50, 99, 1)}  avg: ${_rf(20, 70, 1)}`);
+      return { lines: _clip(lines), color: _p(TPAL) };
+    }
+
+    function genCode() {
+      const snippets = [
+        [
+          'import pandas as pd',
+          'import numpy as np',
+          '',
+          "df = pd.read_parquet('events.pq')",
+          'agg = df.groupby("cohort").agg(',
+          '    users=("uid", "nunique"),',
+          '    rev=("amt", "sum"),',
+          ')',
+          'agg["arpu"] = agg.rev / agg.users',
+          'agg.sort_values("arpu")',
+        ],
+        [
+          'from sklearn.ensemble import \\',
+          '    GradientBoostingClassifier',
+          '',
+          'clf = GradientBoostingClassifier(',
+          '    n_estimators=500,',
+          '    learning_rate=0.01,',
+          '    max_depth=6,',
+          ')',
+          'clf.fit(X_train, y_train)',
+          'print(f"AUC: {auc:.4f}")',
+        ],
+        [
+          'import torch',
+          'import torch.nn as nn',
+          '',
+          'class Encoder(nn.Module):',
+          '    def __init__(self, d=512):',
+          '        super().__init__()',
+          '        self.attn = nn.MultiheadAtt',
+          '            ention(d, num_heads=8)',
+          '        self.ffn = nn.Linear(d, d)',
+          '        self.norm = nn.LayerNorm(d)',
+        ],
+        [
+          'def sharpe(ret, w=252):',
+          '    mu = ret.rolling(w).mean()',
+          '    sig = ret.rolling(w).std()',
+          '    return mu / sig * 252**0.5',
+          '',
+          'sr = sharpe(df.log_ret)',
+          'print(f"SR: {sr.iloc[-1]:.2f}")',
+          '',
+          '# annualized volatility',
+          'vol = df.log_ret.std()*252**0.5',
+        ],
+        [
+          'async def fetch(ids):',
+          '  async with aiohttp.Session():',
+          '    tasks = [',
+          '      s.get(f"/api/v2/{i}")',
+          '      for i in ids',
+          '    ]',
+          '    res = await asyncio.gather(',
+          '      *tasks',
+          '    )',
+          '  return [r.json() for r in res]',
+        ],
+        [
+          'pipe = Pipeline([',
+          '  ("scale", StandardScaler()),',
+          '  ("pca", PCA(n_components=64)),',
+          '  ("clf", LogisticRegression(',
+          '      C=0.1, penalty="l2"',
+          '  )),',
+          '])',
+          'scores = cross_val_score(',
+          '    pipe, X, y, cv=5',
+          ')',
+        ],
+        [
+          'with duckdb.connect() as con:',
+          '  con.execute("""',
+          '    CREATE TABLE metrics AS',
+          '    SELECT * FROM read_parquet(',
+          "      's3://lake/metrics/*.pq'",
+          '    )',
+          '  """)',
+          '  df = con.sql("SELECT * FROM',
+          '    metrics WHERE ts > NOW()',
+          "    - INTERVAL '7 days'\").df()",
+        ],
+      ];
+      return { lines: _clip(_p(snippets)), color: _p(TPAL) };
+    }
+
+    function genSQL() {
+      const snippets = [
+        [
+          "SELECT",
+          "  date_trunc('week', ts) AS wk,",
+          "  COUNT(DISTINCT uid) AS wau,",
+          "  SUM(revenue) AS rev,",
+          "  AVG(session_s) AS avg_s",
+          "FROM events",
+          "WHERE ts >= NOW() - '90d'",
+          "GROUP BY 1",
+          "ORDER BY 1 DESC",
+          "LIMIT 12;",
+        ],
+        [
+          "WITH cohorts AS (",
+          "  SELECT user_id,",
+          "    DATE_TRUNC('month',",
+          "      first_seen) AS cohort",
+          "  FROM users",
+          ")",
+          "SELECT cohort,",
+          "  COUNT(*) AS n,",
+          "  AVG(ltv) AS avg_ltv",
+          "FROM cohorts c",
+          "JOIN orders USING (user_id)",
+          "GROUP BY 1;",
+        ],
+        [
+          "CREATE MATERIALIZED VIEW",
+          "  daily_metrics AS",
+          "SELECT",
+          "  event_date,",
+          "  source,",
+          "  COUNT(*) AS events,",
+          "  SUM(CASE WHEN converted",
+          "    THEN 1 ELSE 0 END) AS cvr",
+          "FROM funnel_events",
+          "GROUP BY 1, 2;",
+        ],
+      ];
+      return { lines: _clip(_p(snippets)), color: _p(TPAL) };
+    }
+
+    function genStats() {
+      const lines = [
+        'OLS Regression Results',
+        '\u2550'.repeat(27),
+        'R\u00B2: ' + _rf(0.7, 0.99, 3) + '  Adj R\u00B2: ' + _rf(0.68, 0.97, 3),
+        'F: ' + _rf(20, 300, 1) + '   p < 0.001',
+        '\u2500'.repeat(27),
+        '       coef    se     p',
+        'x1   ' + _lp(_rf(-2, 5, 3), 7) + ' ' + _rf(0.01, 0.2, 3) + '  ***',
+        'x2   ' + _lp(_rf(-2, 5, 3), 7) + ' ' + _rf(0.01, 0.3, 3) + '  **',
+        'x3   ' + _lp(_rf(-1, 3, 3), 7) + ' ' + _rf(0.02, 0.5, 3) + '  *',
+        'x4   ' + _lp(_rf(-1, 1, 3), 7) + ' ' + _rf(0.1, 0.8, 3) + '  ns',
+        '\u2500'.repeat(27),
+        'DW: ' + _rf(1.5, 2.5, 3),
+        'AIC: ' + _rf(100, 500, 1) + '  BIC: ' + _rf(110, 520, 1),
+      ];
+      return { lines: _clip(lines), color: _p(TPAL) };
+    }
+
+    function genMatrix() {
+      const n = _ri(3, 5), m = _ri(3, 5);
+      const nm = _p(['W', 'X', 'A', '\u03A3', 'H', 'Q', 'K', 'V']);
+      const lines = [nm + ' \u2208 \u211D^(' + n + '\u00D7' + m + ')'];
+      lines.push('\u250C' + ' '.repeat(Math.min(m * 7 + 1, TILE_CHARS - 2)) + '\u2510');
+      for (let i = 0; i < n; i++) {
+        let row = '\u2502';
+        for (let j = 0; j < m; j++) row += _lp(_rf(-3, 3, 2), 7);
+        row += ' \u2502';
+        lines.push(row);
+      }
+      lines.push('\u2514' + ' '.repeat(Math.min(m * 7 + 1, TILE_CHARS - 2)) + '\u2518');
+      lines.push('det: ' + _rf(-10, 10, 3) + '  tr: ' + _rf(-5, 15, 3));
+      return { lines: _clip(lines), color: _p(TPAL) };
+    }
+
+    function genHisto() {
+      const h = 8, w = _ri(16, 26);
+      const vals = Array.from({ length: w }, () => _ri(0, h));
+      const title = _p(['distribution', 'residuals',
+        'log_returns', 'latency_ms', 'token_count']);
+      const lines = [title];
+      for (let row = h; row >= 1; row--) {
+        let line = (row === h ? _lp('' + h, 2) : '  ') + '\u2502';
+        for (let c = 0; c < w; c++) line += vals[c] >= row ? '\u2588' : ' ';
+        lines.push(line);
+      }
+      lines.push('  \u2514' + '\u2500'.repeat(w));
+      return { lines: _clip(lines), color: _p(TPAL) };
+    }
+
+    function genLogs() {
+      const levels = ['INFO', 'INFO', 'INFO', 'WARN', 'DEBUG'];
+      const msgs = [
+        'batch started id={}', 'loaded {}M rows',
+        'feature eng complete', 'epoch {}/200 loss=0.{}',
+        'checkpoint saved s3://', 'val auc=0.{} (+0.003)',
+        'deploy model v{}.{}.{}', 'cache hit: {}%',
+        '{} events in {}ms', 'pool: {}/50 active',
+        'gc pause: {}ms', 'index: {} entries',
+        'rate: {}/1k remaining', 'health: all ok',
+      ];
+      const lines = [];
+      for (let i = 0, n = _ri(9, 14); i < n; i++) {
+        const ts = _lp('' + _ri(0, 23), 2).replace(/ /g, '0') + ':' +
+          _lp('' + _ri(0, 59), 2).replace(/ /g, '0') + ':' +
+          _lp('' + _ri(0, 59), 2).replace(/ /g, '0');
+        const msg = _p(msgs).replace(/\{}/g, () => '' + _ri(1, 999));
+        lines.push(ts + ' ' + _p(levels) + ' ' + msg);
+      }
+      return { lines: _clip(lines), color: _p(TPAL) };
+    }
+
+    const GENERATORS = [genDataframe, genBarChart, genSparkline,
+      genCode, genCode, genSQL, genStats, genMatrix, genHisto, genLogs];
+
+    function fillContentGrid() {
+      contentGrid = [];
+      const tileCols = TILE_CHARS + 3;
+      const tilesAcross = Math.ceil(GCOLS / tileCols);
+      const tilesDown = Math.ceil(GROWS / TILE_LINES);
+      const tiles = [];
+      for (let tr = 0; tr < tilesDown; tr++) {
+        const row = [];
+        for (let tc = 0; tc < tilesAcross; tc++) row.push(_p(GENERATORS)());
+        tiles.push(row);
+      }
+      for (let r = 0; r < GROWS; r++) {
+        const tr = Math.min(Math.floor(r / TILE_LINES), tilesDown - 1);
+        const lr = r % TILE_LINES;
+        let s = '';
+        for (let tc = 0; tc < tilesAcross; tc++) {
+          const t = tiles[tr][tc];
+          const line = lr < t.lines.length ? t.lines[lr] : '';
+          s += _rp(line, TILE_CHARS) + '   ';
+        }
+        contentGrid.push(s.padEnd(GCOLS).slice(0, GCOLS));
+      }
+    }
+
+    function refreshContentBlock() {
+      const tileCols = TILE_CHARS + 3;
+      const tilesAcross = Math.ceil(GCOLS / tileCols);
+      const tilesDown = Math.ceil(GROWS / TILE_LINES);
+      const tr = _ri(0, tilesDown - 1);
+      const tc = _ri(0, tilesAcross - 1);
+      const content = _p(GENERATORS)();
+      for (let lr = 0; lr < TILE_LINES; lr++) {
+        const gr = tr * TILE_LINES + lr;
+        if (gr >= GROWS) break;
+        const line = lr < content.lines.length
+          ? _rp(content.lines[lr], TILE_CHARS)
+          : ' '.repeat(TILE_CHARS);
+        const sc = tc * tileCols;
+        const row = contentGrid[gr];
+        const end = Math.min(sc + TILE_CHARS, GCOLS);
+        contentGrid[gr] = row.slice(0, sc) + line.slice(0, end - sc) + row.slice(end);
+      }
+    }
+
+    function getFluidVel(c, r, t) {
+      const nx = c / GCOLS, ny = r / GROWS;
+      let vx = Math.sin(ny * 6.28 + t * 0.3) * 1.8 +
+               Math.cos((nx + ny) * 11 + t * 0.45) * 0.6 +
+               Math.sin(nx * 20 + ny * 15 + t * 0.7) * 0.2;
+      let vy = Math.cos(nx * 5 + t * 0.35) * 1.3 +
+               Math.sin((nx - ny) * 9 + t * 0.35) * 0.7 +
+               Math.cos(nx * 15 - ny * 20 + t * 0.6) * 0.2;
+      vx += -(ny - 0.5) * 0.4;
+      vy += (nx - 0.5) * 0.4;
+      vy *= cellAspect;
+      return [vx, vy];
+    }
+
+    function stepFluid(t) {
+      for (let r = 0; r < GROWS; r++) {
+        for (let c = 0; c < GCOLS; c++) {
+          const [vx, vy] = getFluidVel(c, r, t);
+          const sx = Math.max(0, Math.min(GCOLS - 1.001, c - vx));
+          const sy = Math.max(0, Math.min(GROWS - 1.001, r - vy));
+          const x0 = sx | 0, y0 = sy | 0;
+          const x1 = Math.min(x0 + 1, GCOLS - 1);
+          const y1 = Math.min(y0 + 1, GROWS - 1);
+          const fx = sx - x0, fy = sy - y0;
+          fluidTmp[r * GCOLS + c] =
+            fluidDen[y0 * GCOLS + x0] * (1 - fx) * (1 - fy) +
+            fluidDen[y0 * GCOLS + x1] * fx * (1 - fy) +
+            fluidDen[y1 * GCOLS + x0] * (1 - fx) * fy +
+            fluidDen[y1 * GCOLS + x1] * fx * fy;
+        }
+      }
+      [fluidDen, fluidTmp] = [fluidTmp, fluidDen];
+
+      for (let r = 1; r < GROWS - 1; r++) {
+        for (let c = 1; c < GCOLS - 1; c++) {
+          const i = r * GCOLS + c;
+          const avg = (fluidDen[i - 1] + fluidDen[i + 1] +
+            (fluidDen[i - GCOLS] + fluidDen[i + GCOLS]) * cellAspect2) /
+            (2 + 2 * cellAspect2);
+          fluidTmp[i] = fluidDen[i] * 0.92 + avg * 0.08;
+        }
+      }
+      [fluidDen, fluidTmp] = [fluidTmp, fluidDen];
+
+      const spread = 10;
+      for (const e of FLUID_EMITTERS) {
+        const ex = (e.cx + Math.cos(t * e.freq + e.phase) * e.orbitR) * GCOLS;
+        const ey = (e.cy + Math.sin(t * e.freq * 0.7 + e.phase) * e.orbitR * 0.8) * GROWS;
+        const ec = ex | 0, er = ey | 0;
+        for (let dr = -spread; dr <= spread; dr++) {
+          for (let dc = -spread; dc <= spread; dc++) {
+            const rr = er + dr, cc = ec + dc;
+            if (rr >= 0 && rr < GROWS && cc >= 0 && cc < GCOLS) {
+              const drs = dr / cellAspect;
+              const dist = Math.sqrt(drs * drs + dc * dc);
+              const s = Math.max(0, 1 - dist / (spread + 1));
+              fluidDen[rr * GCOLS + cc] = Math.min(1, fluidDen[rr * GCOLS + cc] + s * e.str);
+            }
+          }
+        }
+      }
+
+      const N = GCOLS * GROWS;
+      for (let i = 0; i < N; i++) fluidDen[i] *= 0.997;
+    }
+
+    function initFluid(sw, sh) {
+      starsCtx.font = MONO;
+      charW = starsCtx.measureText('M').width || 6.6;
+      cellAspect = charW / LINE_H;
+      cellAspect2 = cellAspect * cellAspect;
+      GCOLS = Math.max(10, Math.floor(sw / charW));
+      GROWS = Math.max(5, Math.floor(sh / LINE_H));
+      fluidDen = new Float32Array(GCOLS * GROWS);
+      fluidTmp = new Float32Array(GCOLS * GROWS);
+      fillContentGrid();
+      nextContentRefresh = performance.now() + 6000;
     }
 
     function resizeStarsCanvas() {
@@ -494,21 +911,75 @@
         starsCanvas.height = bh;
         starsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
-      initStars(sw, sh);
+      initFluid(sw, sh);
     }
 
-    function drawStars() {
+    function drawAsciiArt() {
       const rect = starsCanvas.getBoundingClientRect();
-      const sw = rect.width;
-      const sh = rect.height;
+      const sw = rect.width, sh = rect.height;
       starsCtx.clearRect(0, 0, sw, sh);
-      stars.forEach((s) => {
-        s.tw += s.sp;
-        starsCtx.beginPath();
-        starsCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        starsCtx.fillStyle = `rgba(255,255,255,${0.35 + 0.45 * Math.sin(s.tw)})`;
-        starsCtx.fill();
-      });
+      if (GCOLS === 0 || GROWS === 0) return;
+
+      const now = performance.now();
+      const t = now / 1000;
+      stepFluid(t);
+
+      if (now >= nextContentRefresh) {
+        refreshContentBlock();
+        nextContentRefresh = now + 4000 + Math.random() * 6000;
+      }
+
+      starsCtx.font = MONO;
+      starsCtx.textBaseline = 'top';
+      const maxAlpha = 0.45;
+
+      for (let r = 0; r < GROWS; r++) {
+        const y = r * LINE_H;
+        const row = contentGrid[r];
+        if (!row) continue;
+
+        let runStr = '';
+        let runQA = -1;
+        let runX = 0;
+
+        for (let c = 0; c <= GCOLS; c++) {
+          let qa;
+          if (c < GCOLS) {
+            const d = fluidDen[r * GCOLS + c];
+            qa = d < 0.01 ? 0 : Math.min(10, Math.ceil(d * 10));
+          } else {
+            qa = -1;
+          }
+
+          if (qa !== runQA) {
+            if (runStr.length > 0 && runQA > 0) {
+              starsCtx.globalAlpha = (runQA / 10) * maxAlpha;
+              starsCtx.fillStyle = runQA > 6 ? '#6dd5c8' : runQA > 3 ? '#4a9a8a' : '#2a8a7a';
+              starsCtx.fillText(runStr, runX * charW, y);
+            }
+            runStr = '';
+            runX = c;
+            runQA = qa;
+          }
+
+          if (c < GCOLS && qa > 0) {
+            const ch = row[c];
+            if (ch && ch !== ' ') {
+              runStr += ch;
+            } else if (qa > 4) {
+              runStr += '\u00B7';
+            } else {
+              runStr += ' ';
+            }
+          }
+        }
+      }
+
+      const scanY = (now * 0.03) % (sh + 200) - 100;
+      starsCtx.globalAlpha = 0.025;
+      starsCtx.fillStyle = '#6dd5c8';
+      starsCtx.fillRect(0, scanY, sw, 1.5);
+      starsCtx.globalAlpha = 1;
     }
     const flares = [];
     function spawnFlare(x, y, depth) {
@@ -646,7 +1117,7 @@
     }
 
     function draw() {
-      drawStars();
+      drawAsciiArt();
       ctx.clearRect(0, 0, W, H);
       if (!dragging) {
         spinTheta *= SPIN_FRICTION;
@@ -793,6 +1264,7 @@
     window.addEventListener("resize", resizeStarsCanvas);
     new ResizeObserver(resizeStarsCanvas).observe(hero);
     resizeStarsCanvas();
+    document.fonts.ready.then(resizeStarsCanvas);
     draw();
   </script>
 </body>
