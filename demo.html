@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holonomy on the Sphere</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@300&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0f;
+            color: #d4cfc4;
+            font-family: 'EB Garamond', serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 400;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 0.3rem;
+            color: #e8e2d6;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 300;
+            color: #7a7568;
+            margin-bottom: 1.2rem;
+            letter-spacing: 0.05em;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 4px;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .drag-hint {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: #3a3530;
+            margin-top: 0.4rem;
+            letter-spacing: 0.04em;
+            transition: opacity 1.5s;
+        }
+
+        .info-bar {
+            display: flex;
+            gap: 2.5rem;
+            margin-top: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 300;
+            color: #5a5548;
+            letter-spacing: 0.03em;
+        }
+
+        .info-bar span {
+            color: #9a8e7a;
+        }
+
+        .angle-display {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #5a5548;
+            text-align: right;
+            line-height: 1.6;
+        }
+
+        .angle-display .val {
+            color: #c8785a;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Holonomy</h1>
+    <div class="subtitle">parallel transport on S²</div>
+    <canvas id="c"></canvas>
+    <div class="drag-hint" id="dragHint">drag to rotate</div>
+    <div class="info-bar">
+        <div>path: <span>spherical triangle</span></div>
+        <div>transport: <span id="direction">forward</span></div>
+        <div>progress: <span id="progress">0%</span></div>
+    </div>
+
+    <div class="angle-display">
+        deficit angle<br>
+        <span class="val" id="deficit">0.00°</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+
+        const SIZE = Math.min(window.innerWidth * 0.85, window.innerHeight * 0.65, 640);
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+
+        const CX = SIZE / 2, CY = SIZE / 2, R = SIZE * 0.36;
+
+        // --- Spherical geometry helpers ---
+        function sph2cart(theta, phi) {
+            return [
+                Math.sin(theta) * Math.cos(phi),
+                Math.sin(theta) * Math.sin(phi),
+                Math.cos(theta)
+            ];
+        }
+
+        function cart2sph(x, y, z) {
+            const r = Math.sqrt(x * x + y * y + z * z);
+            return [Math.acos(z / r), Math.atan2(y, x)];
+        }
+
+        function normalize(v) {
+            const l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+            return [v[0] / l, v[1] / l, v[2] / l];
+        }
+
+        function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+        function cross(a, b) {
+            return [
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0]
+            ];
+        }
+
+        function vadd(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+        function vsub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+        function vscale(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+
+        // Slerp between two unit vectors
+        function slerp(a, b, t) {
+            let d = dot(a, b);
+            d = Math.max(-1, Math.min(1, d));
+            const omega = Math.acos(d);
+            if (omega < 1e-8) return a;
+            const sinO = Math.sin(omega);
+            return vadd(
+                vscale(a, Math.sin((1 - t) * omega) / sinO),
+                vscale(b, Math.sin(t * omega) / sinO)
+            );
+        }
+
+        // Parallel transport a tangent vector along a geodesic from p1 to p2
+        // Uses the rotation that takes p1 to p2 along their great circle,
+        // applied via Rodrigues' rotation formula.
+        function parallelTransport(vec, p1, p2) {
+            // The rotation axis is p1 x p2 (normalized), rotation angle = angle between p1, p2
+            const c = cross(p1, p2);
+            const sinAngle = Math.sqrt(dot(c, c));
+            if (sinAngle < 1e-12) return vec; // p1 ≈ p2, no transport needed
+
+            const axis = vscale(c, 1.0 / sinAngle);
+            const cosAngle = dot(p1, p2);
+
+            // Rodrigues' formula: v_rot = v cosθ + (axis × v) sinθ + axis (axis · v)(1 - cosθ)
+            const crossAV = cross(axis, vec);
+            const dotAV = dot(axis, vec);
+            let result = vadd(
+                vadd(vscale(vec, cosAngle), vscale(crossAV, sinAngle)),
+                vscale(axis, dotAV * (1 - cosAngle))
+            );
+
+            // Project onto tangent plane of p2 (remove any radial component from float errors)
+            result = vsub(result, vscale(p2, dot(result, p2)));
+
+            // Preserve length
+            const origLen = Math.sqrt(dot(vec, vec));
+            const newLen = Math.sqrt(dot(result, result));
+            if (newLen > 1e-12) result = vscale(result, origLen / newLen);
+            return result;
+        }
+
+        // --- Define the spherical triangle ---
+        // Three vertices on the sphere: north-pole-ish region, making a nice visible triangle
+        // We'll use a triangle with one vertex at the north pole
+        const vertA = sph2cart(0.35, 0);          // near north pole, front
+        const vertB = sph2cart(1.15, -0.7);       // lower left
+        const vertC = sph2cart(1.15, 0.7);        // lower right
+
+        // Build the path: A -> B -> C -> A, with many interpolation steps per leg
+        const STEPS_PER_LEG = 120;
+        const pathPoints = [];
+        const legBreaks = [0]; // indices where legs start
+
+        for (let i = 0; i <= STEPS_PER_LEG; i++) {
+            pathPoints.push(normalize(slerp(vertA, vertB, i / STEPS_PER_LEG)));
+        }
+        legBreaks.push(pathPoints.length - 1);
+        for (let i = 1; i <= STEPS_PER_LEG; i++) {
+            pathPoints.push(normalize(slerp(vertB, vertC, i / STEPS_PER_LEG)));
+        }
+        legBreaks.push(pathPoints.length - 1);
+        for (let i = 1; i <= STEPS_PER_LEG; i++) {
+            pathPoints.push(normalize(slerp(vertC, vertA, i / STEPS_PER_LEG)));
+        }
+
+        const TOTAL = pathPoints.length;
+
+        // Compute transported vectors along the entire path
+        const initialTangent = (() => {
+            // Tangent at A pointing roughly toward B, in the tangent plane of A
+            let t = vsub(vertB, vscale(vertA, dot(vertB, vertA)));
+            t = normalize(t);
+            return vscale(t, 0.28);
+        })();
+
+        const transportedVectors = [initialTangent];
+        for (let i = 1; i < TOTAL; i++) {
+            transportedVectors.push(
+                parallelTransport(transportedVectors[i - 1], pathPoints[i - 1], pathPoints[i])
+            );
+        }
+
+        // Compute the holonomy angle (deficit)
+        const finalVec = normalize(transportedVectors[TOTAL - 1]);
+        const initVec = normalize(initialTangent);
+        let holonomyAngle = Math.acos(Math.max(-1, Math.min(1, dot(finalVec, initVec))));
+        // Get sign via cross product dotted with the normal at A
+        const cr = cross(initVec, finalVec);
+        if (dot(cr, vertA) < 0) holonomyAngle = -holonomyAngle;
+        const holonomyDeg = holonomyAngle * 180 / Math.PI;
+
+        // Precompute the signed angle between initial vector and transported vector
+        // at each path point (measured at point A via transport back, or equivalently
+        // just measure angle between transported[i] "brought back" and initial).
+        // Simpler: measure the cumulative rotation at each step by comparing
+        // transported vector to what a "naively rotated" initial tangent would be.
+        // Actually the meaningful thing: at the START point only do initial vs final matter.
+        // But for display, show 0 during traversal and then the deficit at completion.
+        // Better: show the signed angle between the current transported vector and
+        // what you'd get by transporting the initial vector directly from A to current point.
+        const directTransported = [initialTangent];
+        for (let i = 1; i < TOTAL; i++) {
+            // Transport initial tangent directly from A to pathPoints[i] via the geodesic A->pathPoints[i]
+            directTransported.push(parallelTransport(initialTangent, pathPoints[0], pathPoints[i]));
+        }
+        // Now deficit at step i = signed angle between transportedVectors[i] and directTransported[i]
+        const deficitAtStep = [0];
+        for (let i = 1; i < TOTAL; i++) {
+            const tv = normalize(transportedVectors[i]);
+            const dv = normalize(directTransported[i]);
+            let ang = Math.acos(Math.max(-1, Math.min(1, dot(tv, dv))));
+            const c2 = cross(dv, tv);
+            if (dot(c2, pathPoints[i]) < 0) ang = -ang;
+            deficitAtStep.push(ang * 180 / Math.PI);
+        }
+        console.log('Holonomy angle:', holonomyDeg.toFixed(2), '°');
+        console.log('Final deficit at last step:', deficitAtStep[TOTAL - 1].toFixed(2), '°');
+
+        // --- 3D projection (oblique view with slow rotation) ---
+        function rotateY(p, angle) {
+            const c = Math.cos(angle), s = Math.sin(angle);
+            return [c * p[0] + s * p[2], p[1], -s * p[0] + c * p[2]];
+        }
+
+        function rotateX(p, angle) {
+            const c = Math.cos(angle), s = Math.sin(angle);
+            return [p[0], c * p[1] - s * p[2], s * p[1] + c * p[2]];
+        }
+
+        function project(p, rotY, rotX) {
+            let q = rotateY(p, rotY);
+            q = rotateX(q, rotX);
+            // Simple perspective-ish orthographic
+            const scale = 1.0 + q[2] * 0.15;
+            return {
+                x: CX + q[0] * R * scale,
+                y: CY - q[1] * R * scale,
+                z: q[2],
+                depth: q[2]
+            };
+        }
+
+        // --- Trackball camera controls ---
+        let camRotY = -0.35;
+        let camRotX = 0.55;
+        let isDragging = false;
+        let lastMouseX = 0, lastMouseY = 0;
+        let velY = 0, velX = 0;
+        const SENSITIVITY = 0.007;
+        const FRICTION = 0.92;
+        const IDLE_SPEED = 0.04; // gentle auto-rotate when untouched
+        let idleTimer = 0;
+        let everDragged = false;
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            velY = 0; velX = 0;
+            if (!everDragged) {
+                everDragged = true;
+                document.getElementById('dragHint').style.opacity = '0';
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+            velY = dx * SENSITIVITY;
+            velX = -dy * SENSITIVITY;
+            camRotY += velY;
+            camRotX += velX;
+            // Clamp vertical rotation to avoid flipping
+            camRotX = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 + 0.4, camRotX));
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            idleTimer = 0;
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isDragging = true;
+            const t = e.touches[0];
+            lastMouseX = t.clientX;
+            lastMouseY = t.clientY;
+            velY = 0; velX = 0;
+            if (!everDragged) {
+                everDragged = true;
+                document.getElementById('dragHint').style.opacity = '0';
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!isDragging) return;
+            const t = e.touches[0];
+            const dx = t.clientX - lastMouseX;
+            const dy = t.clientY - lastMouseY;
+            velY = dx * SENSITIVITY;
+            velX = -dy * SENSITIVITY;
+            camRotY += velY;
+            camRotX += velX;
+            camRotX = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 + 0.4, camRotX));
+            lastMouseX = t.clientX;
+            lastMouseY = t.clientY;
+            idleTimer = 0;
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => { isDragging = false; });
+
+        // --- Animation ---
+        const CYCLE_DURATION = 6000; // ms for one full forward+backward cycle
+        let startTime = null;
+
+        function easeInOut(t) {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        }
+
+        function drawFrame(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = (timestamp - startTime) % CYCLE_DURATION;
+            const halfCycle = CYCLE_DURATION / 2;
+            const dt = 1 / 60;
+
+            let rawT, forward;
+            if (elapsed < halfCycle) {
+                rawT = elapsed / halfCycle;
+                forward = true;
+            } else {
+                rawT = 1 - (elapsed - halfCycle) / halfCycle;
+                forward = false;
+            }
+
+            const t = easeInOut(rawT);
+            const pathIndex = Math.min(Math.floor(t * (TOTAL - 1)), TOTAL - 2);
+            const frac = t * (TOTAL - 1) - pathIndex;
+
+            // Apply inertia when not dragging
+            if (!isDragging) {
+                camRotY += velY;
+                camRotX += velX;
+                camRotX = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 + 0.4, camRotX));
+                velY *= FRICTION;
+                velX *= FRICTION;
+
+                // After inertia dies, gently auto-rotate
+                idleTimer += dt;
+                if (idleTimer > 2.0) {
+                    const blend = Math.min((idleTimer - 2.0) / 3.0, 1.0);
+                    camRotY += IDLE_SPEED * dt * blend;
+                }
+            }
+
+            const rotYVal = camRotY;
+            const rotXVal = camRotX;
+
+            ctx.clearRect(0, 0, SIZE, SIZE);
+
+            // Draw sphere wireframe
+            drawSphere(rotYVal, rotXVal);
+
+            // Draw the full triangle path (faded)
+            drawPath(rotYVal, rotXVal, 1.0);
+
+            // Draw the traversed portion (bright)
+            drawTraversed(rotYVal, rotXVal, pathIndex, frac);
+
+            // Draw the vector at current position
+            const currentPos = pathPoints[pathIndex];
+            const nextPos = pathPoints[Math.min(pathIndex + 1, TOTAL - 1)];
+            const interpPos = normalize(slerp(currentPos, nextPos, frac));
+
+            const currentVec = transportedVectors[pathIndex];
+            const nextVec = transportedVectors[Math.min(pathIndex + 1, TOTAL - 1)];
+            // Interpolate vector
+            const interpVec = vadd(
+                vscale(currentVec, 1 - frac),
+                vscale(nextVec, frac)
+            );
+
+            drawVector(interpPos, interpVec, rotYVal, rotXVal, '#c8785a');
+
+            // Draw initial vector (ghost) at start point — always visible
+            drawVector(pathPoints[0], initialTangent, rotYVal, rotXVal, 'rgba(90, 160, 130, 0.55)');
+
+            // When near the end of the loop, also draw the final transported vector at A
+            // to make the deficit clearly visible
+            if (t > 0.95) {
+                const finalTransported = transportedVectors[TOTAL - 1];
+                drawVector(pathPoints[0], finalTransported, rotYVal, rotXVal, 'rgba(200, 120, 90, 0.7)');
+            }
+
+            // Draw vertices
+            drawVertex(vertA, rotYVal, rotXVal, 'A');
+            drawVertex(vertB, rotYVal, rotXVal, 'B');
+            drawVertex(vertC, rotYVal, rotXVal, 'C');
+
+            // Draw dot at current position
+            const pp = project(interpPos, rotYVal, rotXVal);
+            if (pp.depth > -0.1) {
+                ctx.beginPath();
+                ctx.arc(pp.x, pp.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#e8e2d6';
+                ctx.fill();
+            }
+
+            // Update UI
+            document.getElementById('direction').textContent = forward ? 'forward →' : '← backward';
+            document.getElementById('progress').textContent = Math.round(rawT * 100) + '%';
+
+            const currentDeficit = deficitAtStep[pathIndex] + frac * (deficitAtStep[Math.min(pathIndex + 1, TOTAL - 1)] - deficitAtStep[pathIndex]);
+            document.getElementById('deficit').textContent = currentDeficit.toFixed(1) + '°';
+
+            requestAnimationFrame(drawFrame);
+        }
+
+        function drawSphere(rotY, rotX) {
+            // Latitude lines
+            for (let lat = 1; lat < 6; lat++) {
+                const theta = (lat / 6) * Math.PI;
+                ctx.beginPath();
+                let started = false;
+                for (let i = 0; i <= 80; i++) {
+                    const phi = (i / 80) * Math.PI * 2;
+                    const p = sph2cart(theta, phi);
+                    const pp = project(p, rotY, rotX);
+                    const alpha = pp.depth > 0 ? 0.12 : 0.03;
+                    if (!started) {
+                        ctx.moveTo(pp.x, pp.y);
+                        started = true;
+                    } else {
+                        ctx.lineTo(pp.x, pp.y);
+                    }
+                }
+                ctx.strokeStyle = 'rgba(212, 207, 196, 0.06)';
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+            }
+
+            // Longitude lines
+            for (let lon = 0; lon < 8; lon++) {
+                const phi = (lon / 8) * Math.PI * 2;
+                ctx.beginPath();
+                for (let i = 0; i <= 60; i++) {
+                    const theta = (i / 60) * Math.PI;
+                    const p = sph2cart(theta, phi);
+                    const pp = project(p, rotY, rotX);
+                    if (i === 0) ctx.moveTo(pp.x, pp.y);
+                    else ctx.lineTo(pp.x, pp.y);
+                }
+                ctx.strokeStyle = 'rgba(212, 207, 196, 0.06)';
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+            }
+
+            // Sphere outline
+            ctx.beginPath();
+            ctx.arc(CX, CY, R * 1.02, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(212, 207, 196, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        function drawPath(rotY, rotX, alpha) {
+            // Draw each leg in a slightly different shade
+            const legColors = [
+                `rgba(120, 140, 160, ${0.2 * alpha})`,
+                `rgba(120, 140, 160, ${0.2 * alpha})`,
+                `rgba(120, 140, 160, ${0.2 * alpha})`
+            ];
+
+            for (let leg = 0; leg < 3; leg++) {
+                const start = legBreaks[leg];
+                const end = leg < 2 ? legBreaks[leg + 1] : TOTAL - 1;
+                ctx.beginPath();
+                for (let i = start; i <= end; i++) {
+                    const pp = project(pathPoints[i], rotY, rotX);
+                    if (i === start) ctx.moveTo(pp.x, pp.y);
+                    else ctx.lineTo(pp.x, pp.y);
+                }
+                ctx.strokeStyle = legColors[leg];
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        function drawTraversed(rotY, rotX, pathIndex, frac) {
+            ctx.beginPath();
+            for (let i = 0; i <= pathIndex + 1 && i < TOTAL; i++) {
+                const pp = project(pathPoints[i], rotY, rotX);
+                if (i === 0) ctx.moveTo(pp.x, pp.y);
+                else ctx.lineTo(pp.x, pp.y);
+            }
+            ctx.strokeStyle = 'rgba(200, 120, 90, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function drawVector(pos, vec, rotY, rotX, color) {
+            const tip = normalize(vadd(pos, vec));
+            const pp1 = project(pos, rotY, rotX);
+            const pp2 = project(tip, rotY, rotX);
+
+            if (pp1.depth < -0.3 && pp2.depth < -0.3) return;
+
+            const dx = pp2.x - pp1.x;
+            const dy = pp2.y - pp1.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+
+            ctx.beginPath();
+            ctx.moveTo(pp1.x, pp1.y);
+            ctx.lineTo(pp2.x, pp2.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Arrowhead
+            if (len > 5) {
+                const angle = Math.atan2(dy, dx);
+                const headLen = 8;
+                ctx.beginPath();
+                ctx.moveTo(pp2.x, pp2.y);
+                ctx.lineTo(
+                    pp2.x - headLen * Math.cos(angle - 0.35),
+                    pp2.y - headLen * Math.sin(angle - 0.35)
+                );
+                ctx.moveTo(pp2.x, pp2.y);
+                ctx.lineTo(
+                    pp2.x - headLen * Math.cos(angle + 0.35),
+                    pp2.y - headLen * Math.sin(angle + 0.35)
+                );
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function drawVertex(pos, rotY, rotX, label) {
+            const pp = project(pos, rotY, rotX);
+            if (pp.depth < -0.2) return;
+
+            ctx.beginPath();
+            ctx.arc(pp.x, pp.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#e8e2d6';
+            ctx.fill();
+
+            ctx.font = '600 14px "EB Garamond", serif';
+            ctx.fillStyle = 'rgba(232, 226, 214, 0.6)';
+            ctx.fillText(label, pp.x + 8, pp.y - 8);
+        }
+
+        requestAnimationFrame(drawFrame);
+    </script>
+</body>
+
+</html>
