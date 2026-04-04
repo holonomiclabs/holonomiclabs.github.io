@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activation probe — residual readout</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@300&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0f;
+            color: #d4cfc4;
+            font-family: 'EB Garamond', serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 400;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 0.3rem;
+            color: #e8e2d6;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 300;
+            color: #7a7568;
+            margin-bottom: 0;
+            letter-spacing: 0.05em;
+        }
+
+        .probe-header-wrap {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            cursor: help;
+            max-width: min(36rem, 94vw);
+        }
+
+        .probe-header-wrap h1 {
+            border-bottom: 1px dotted rgba(154, 142, 122, 0.45);
+            padding-bottom: 0.15rem;
+            transition: color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .probe-header-wrap:hover h1,
+        .probe-header-wrap:focus-within h1 {
+            color: #f2ebe0;
+            border-bottom-color: rgba(200, 120, 90, 0.55);
+        }
+
+        .probe-tip {
+            position: absolute;
+            left: 50%;
+            top: calc(100% + 0.45rem);
+            transform: translateX(-50%) translateY(-4px) scale(0.98);
+            width: max-content;
+            max-width: min(28rem, 92vw);
+            padding: 0.75rem 0.95rem 0.85rem;
+            text-align: left;
+            font-family: 'EB Garamond', serif;
+            font-size: 0.92rem;
+            font-weight: 400;
+            line-height: 1.45;
+            letter-spacing: 0.02em;
+            color: #e8e2d6;
+            background: linear-gradient(160deg, rgba(42, 36, 32, 0.98) 0%, rgba(24, 22, 20, 0.99) 100%);
+            border: 1px solid rgba(200, 120, 90, 0.38);
+            border-radius: 8px;
+            box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.2s linear;
+            z-index: 20;
+        }
+
+        .probe-tip::after {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-bottom-color: rgba(32, 28, 26, 0.98);
+            filter: drop-shadow(0 -1px 0 rgba(200, 120, 90, 0.2));
+        }
+
+        .probe-header-wrap:hover .probe-tip,
+        .probe-header-wrap:focus-within .probe-tip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+
+        canvas {
+            display: block;
+            border-radius: 4px;
+        }
+
+        .info-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.2rem 2.5rem;
+            margin-top: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 300;
+            color: #5a5548;
+            letter-spacing: 0.03em;
+        }
+
+        .info-bar span {
+            color: #9a8e7a;
+        }
+
+        .readout {
+            position: fixed;
+            bottom: 1.2rem;
+            right: 1.2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: #5a5548;
+            text-align: right;
+            line-height: 1.55;
+        }
+
+        .readout .val {
+            color: #9a8e7a;
+            font-size: 0.82rem;
+            transition: color 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="probe-header-wrap" tabindex="0" aria-describedby="probe-tip">
+        <h1>Activation Probe</h1>
+        <div class="subtitle">residual stream · linear readout · σ(<em>w</em>&thinsp;·&thinsp;<em>r</em> + <em>b</em>)
+        </div>
+        <div class="probe-tip" id="probe-tip" role="tooltip">
+            A probe is a linear classifier trained on the model's residual stream — the
+            running sum that flows between transformer layers at a single token position.
+            Green dots are labeled traces where the model was genuinely confident; red dots
+            where it was confused and wrong. Gold dots mark the frontier: correct answers
+            from an internally uncertain model — signal that output evaluation alone cannot
+            capture.
+        </div>
+    </div>
+
+    <canvas id="c"></canvas>
+
+    <div class="info-bar">
+        <div>trace: <span id="traceNum">—</span></div>
+        <div>output: <span id="outputVal">—</span></div>
+        <div>status: <span id="status">calibrating</span></div>
+    </div>
+
+    <div class="readout">
+        P(uncertain)<br>
+        <span class="val" id="probeVal">0.00</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+
+        const W = Math.min(window.innerWidth * 0.95, 960);
+        const H = Math.min(window.innerHeight * 0.62, 540);
+        canvas.width = W;
+        canvas.height = H;
+
+        const plot = { l: 32, r: W - 22, t: 26, b: H - 22 };
+        const xMin = -3.2, xMax = 3.2, yMin = -2.4, yMax = 2.4;
+
+        function w2s(wx, wy) {
+            return [
+                plot.l + (wx - xMin) / (xMax - xMin) * (plot.r - plot.l),
+                plot.b - (wy - yMin) / (yMax - yMin) * (plot.b - plot.t)
+            ];
+        }
+
+        function sigmoid(z) {
+            if (z > 20) return 1;
+            if (z < -20) return 0;
+            return 1 / (1 + Math.exp(-z));
+        }
+
+        function randn() {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+        }
+
+        function ease(t) {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        }
+
+        // ── Training data ──
+        const trainPts = [];
+        const nTrain = 20;
+        for (let i = 0; i < nTrain; i++) {
+            trainPts.push({ x: -1.4 + randn() * 0.4, y: 0.5 + randn() * 0.38, label: 0 });
+            trainPts.push({ x: 1.3 + randn() * 0.38, y: -0.4 + randn() * 0.35, label: 1 });
+        }
+
+        // ── Fit logistic probe ──
+        let w0 = 0.8, w1 = 0.15, b = 0;
+        for (let iter = 0; iter < 500; iter++) {
+            let gw0 = 0, gw1 = 0, gb = 0;
+            for (const p of trainPts) {
+                const z = w0 * p.x + w1 * p.y + b;
+                const err = sigmoid(z) - p.label;
+                gw0 += err * p.x;
+                gw1 += err * p.y;
+                gb += err;
+            }
+            const n = trainPts.length;
+            w0 -= 0.4 * gw0 / n;
+            w1 -= 0.4 * gw1 / n;
+            b -= 0.4 * gb / n;
+        }
+
+        function probe(x, y) { return sigmoid(w0 * x + w1 * y + b); }
+
+        // ── Heatmap (pre-rendered) ──
+        const heatCanvas = document.createElement('canvas');
+        heatCanvas.width = W;
+        heatCanvas.height = H;
+        const hctx = heatCanvas.getContext('2d');
+        (function renderHeatmap() {
+            const res = 5;
+            for (let sy = plot.t; sy < plot.b; sy += res) {
+                for (let sx = plot.l; sx < plot.r; sx += res) {
+                    const wx = xMin + (sx - plot.l) / (plot.r - plot.l) * (xMax - xMin);
+                    const wy = yMax - (sy - plot.t) / (plot.b - plot.t) * (yMax - yMin);
+                    const p = probe(wx, wy);
+                    const r = Math.round(11 + p * 14);
+                    const g = Math.round(11 + (1 - p) * 9);
+                    const bv = Math.round(16 + (1 - p) * 9);
+                    hctx.fillStyle = `rgb(${r},${g},${bv})`;
+                    hctx.fillRect(sx, sy, res, res);
+                }
+            }
+        })();
+
+        // ── Episode generation ──
+        const queries = [
+            'SELECT COUNT(*) FROM events…',
+            'SELECT cohort, AVG(ltv)…',
+            'SELECT SUM(revenue) GROUP BY…',
+            'WITH retention AS (…) SELECT…',
+            'SELECT DISTINCT user_id FROM…',
+            "SELECT date_trunc('week', ts)…",
+            'SELECT conversion_rate FROM…',
+            'SELECT AVG(session_s) JOIN…',
+            'SELECT churn_rate FROM metrics…',
+            'SELECT source, COUNT(*) FROM…',
+            'SELECT p50_latency FROM logs…',
+        ];
+
+        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+        function makeEpisodes() {
+            const eps = [];
+
+            for (let i = 0; i < 4; i++) {
+                let x, y;
+                do { x = -1.2 + randn() * 0.55; y = 0.3 + randn() * 0.48; }
+                while (probe(x, y) > 0.38);
+                eps.push({ x, y, correct: true, type: 'normal', query: pick(queries) });
+            }
+
+            for (let i = 0; i < 3; i++) {
+                let x, y;
+                do { x = 1.1 + randn() * 0.48; y = -0.3 + randn() * 0.42; }
+                while (probe(x, y) < 0.62);
+                eps.push({ x, y, correct: false, type: 'normal', query: pick(queries) });
+            }
+
+            for (let i = 0; i < 2; i++) {
+                let x, y;
+                do { x = 0.4 + randn() * 0.55; y = 0.1 + randn() * 0.4; }
+                while (probe(x, y) < 0.56 || probe(x, y) > 0.93);
+                eps.push({ x, y, correct: true, type: 'frontier', query: pick(queries) });
+            }
+
+            for (let i = eps.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [eps[i], eps[j]] = [eps[j], eps[i]];
+            }
+            for (let i = 0; i < Math.min(2, eps.length); i++) {
+                if (eps[i].type === 'frontier') {
+                    for (let j = 3; j < eps.length; j++) {
+                        if (eps[j].type !== 'frontier') {
+                            [eps[i], eps[j]] = [eps[j], eps[i]];
+                            break;
+                        }
+                    }
+                }
+            }
+            return eps;
+        }
+
+        // ── Timeline ──
+        const BEAT_MS = 1500;
+        const FRONTIER_MS = 2600;
+        const BATCH_GAP = 2500;
+        const INTRO_MS = 600;
+
+        function buildTimeline(eps) {
+            const beats = [];
+            let t = INTRO_MS;
+            for (const ep of eps) {
+                const dur = ep.type === 'frontier' ? FRONTIER_MS : BEAT_MS;
+                beats.push({ start: t, dur, ep });
+                t += dur;
+            }
+            return { beats, cycle: t + BATCH_GAP };
+        }
+
+        let episodes = makeEpisodes();
+        let tl = buildTimeline(episodes);
+        let cycleStart = 0;
+
+        // ── Drawing ──
+
+        function drawBackground() {
+            ctx.globalAlpha = 0.35;
+            ctx.drawImage(heatCanvas, 0, 0);
+            ctx.globalAlpha = 1;
+
+            const [ox, oy] = w2s(0, 0);
+            ctx.strokeStyle = 'rgba(212,207,196,0.05)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(plot.l, oy); ctx.lineTo(plot.r, oy);
+            ctx.moveTo(ox, plot.t); ctx.lineTo(ox, plot.b);
+            ctx.stroke();
+        }
+
+        function drawBoundary() {
+            ctx.beginPath();
+            let started = false;
+            for (let i = 0; i <= 120; i++) {
+                const wx = xMin + (xMax - xMin) * i / 120;
+                if (Math.abs(w1) < 1e-8) continue;
+                const wy = -(w0 * wx + b) / w1;
+                if (wy < yMin || wy > yMax) continue;
+                const [sx, sy] = w2s(wx, wy);
+                if (!started) { ctx.moveTo(sx, sy); started = true; }
+                else ctx.lineTo(sx, sy);
+            }
+            if (started) {
+                ctx.strokeStyle = 'rgba(158,207,196,0.38)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        function drawTrainPts() {
+            for (const p of trainPts) {
+                const [sx, sy] = w2s(p.x, p.y);
+                ctx.beginPath();
+                ctx.arc(sx, sy, 2.8, 0, Math.PI * 2);
+                ctx.fillStyle = p.label === 0
+                    ? 'rgba(90,160,130,0.38)'
+                    : 'rgba(200,120,90,0.38)';
+                ctx.fill();
+            }
+        }
+
+        function drawLabels() {
+            ctx.font = '300 9px "JetBrains Mono", monospace';
+            ctx.fillStyle = 'rgba(122,117,104,0.4)';
+            ctx.fillText('residual stream activations (2D projection)', plot.l, plot.t - 6);
+
+            const [clx, cly] = w2s(-2.6, yMax - 0.35);
+            ctx.fillStyle = 'rgba(90,160,130,0.3)';
+            ctx.fillText('confident traces', clx, cly);
+
+            const [ulx, uly] = w2s(1.5, yMin + 0.55);
+            ctx.fillStyle = 'rgba(200,120,90,0.3)';
+            ctx.fillText('uncertain traces', ulx, uly);
+        }
+
+        function drawLegend() {
+            const lx = plot.r - 155, ly = plot.t + 10;
+            ctx.font = '300 8.5px "JetBrains Mono", monospace';
+
+            ctx.beginPath();
+            ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(90,160,130,0.6)';
+            ctx.fill();
+            ctx.fillStyle = 'rgba(122,117,104,0.5)';
+            ctx.fillText('✓ confident + correct', lx + 7, ly + 3);
+
+            ctx.beginPath();
+            ctx.arc(lx, ly + 14, 3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(200,120,90,0.6)';
+            ctx.fill();
+            ctx.fillStyle = 'rgba(122,117,104,0.5)';
+            ctx.fillText('✗ uncertain + wrong', lx + 7, ly + 17);
+
+            ctx.beginPath();
+            ctx.arc(lx, ly + 28, 3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(220,185,70,0.7)';
+            ctx.fill();
+            ctx.fillStyle = 'rgba(220,185,70,0.5)';
+            ctx.fillText('✓ uncertain + correct', lx + 7, ly + 31);
+        }
+
+        function drawHistory(completed) {
+            for (const beat of completed) {
+                const ep = beat.ep;
+                const [sx, sy] = w2s(ep.x, ep.y);
+                ctx.beginPath();
+                ctx.arc(sx, sy, 3.8, 0, Math.PI * 2);
+                if (ep.type === 'frontier') {
+                    ctx.fillStyle = 'rgba(220,185,70,0.45)';
+                } else if (ep.correct) {
+                    ctx.fillStyle = 'rgba(90,160,130,0.35)';
+                } else {
+                    ctx.fillStyle = 'rgba(200,120,90,0.35)';
+                }
+                ctx.fill();
+
+                ctx.font = '500 9px "EB Garamond", serif';
+                if (ep.correct) {
+                    ctx.fillStyle = ep.type === 'frontier'
+                        ? 'rgba(220,185,70,0.5)'
+                        : 'rgba(90,160,130,0.4)';
+                    ctx.fillText('✓', sx + 6, sy - 3);
+                } else {
+                    ctx.fillStyle = 'rgba(200,120,90,0.4)';
+                    ctx.fillText('✗', sx + 6, sy - 3);
+                }
+            }
+        }
+
+        function drawActive(ep, progress, elapsed) {
+            const isFr = ep.type === 'frontier';
+
+            const enterEnd = isFr ? 0.18 : 0.22;
+            const classStart = isFr ? 0.32 : 0.42;
+            const highStart = isFr ? 0.50 : 2;
+            const fadeStart = isFr ? 0.85 : 0.72;
+
+            let x, y;
+            if (progress < enterEnd) {
+                const t = ease(progress / enterEnd);
+                x = xMin + 0.3 + (ep.x - (xMin + 0.3)) * t;
+                y = 0 + (ep.y - 0) * t;
+            } else {
+                x = ep.x;
+                y = ep.y;
+            }
+
+            const [sx, sy] = w2s(x, y);
+            const ps = probe(x, y);
+
+            const pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.006);
+            const glowR = 20 + pulse * 5;
+            const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, glowR);
+
+            if (isFr && progress > highStart) {
+                grd.addColorStop(0, 'rgba(220,185,70,0.22)');
+                grd.addColorStop(1, 'rgba(220,185,70,0)');
+            } else {
+                grd.addColorStop(0, 'rgba(232,226,214,0.10)');
+                grd.addColorStop(1, 'rgba(232,226,214,0)');
+            }
+            ctx.beginPath();
+            ctx.arc(sx, sy, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = grd;
+            ctx.fill();
+
+            let fadeMul = 1;
+            if (progress > fadeStart) fadeMul = 1 - ease((progress - fadeStart) / (1 - fadeStart));
+
+            if (isFr && progress > highStart && progress < fadeStart) {
+                const ripT = (progress - highStart) / (fadeStart - highStart);
+                const ripR = 8 + ripT * 22;
+                ctx.beginPath();
+                ctx.arc(sx, sy, ripR, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(220,185,70,${0.45 * (1 - ripT) * fadeMul})`;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                if (ripT > 0.3) {
+                    const ripR2 = 8 + (ripT - 0.3) * 20;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, ripR2, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(220,185,70,${0.25 * (1 - ripT) * fadeMul})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+
+            const dotR = 6.5 * (0.7 + 0.3 * fadeMul);
+            ctx.beginPath();
+            ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+            if (isFr && progress > highStart) {
+                ctx.fillStyle = `rgba(220,185,70,${0.9 * fadeMul})`;
+            } else if (ep.correct) {
+                ctx.fillStyle = `rgba(90,160,130,${0.85 * fadeMul})`;
+            } else {
+                ctx.fillStyle = `rgba(200,120,90,${0.85 * fadeMul})`;
+            }
+            ctx.fill();
+            ctx.strokeStyle = `rgba(232,226,214,${0.55 * fadeMul})`;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            if (progress > classStart) {
+                const la = Math.min(1, (progress - classStart) * 6) * fadeMul;
+                ctx.font = '600 13px "EB Garamond", serif';
+                if (ep.correct) {
+                    ctx.fillStyle = (isFr && progress > highStart)
+                        ? `rgba(220,185,70,${0.85 * la})`
+                        : `rgba(90,160,130,${0.7 * la})`;
+                    ctx.fillText('✓', sx + 10, sy - 5);
+                } else {
+                    ctx.fillStyle = `rgba(200,120,90,${0.7 * la})`;
+                    ctx.fillText('✗', sx + 10, sy - 5);
+                }
+            }
+
+            if (isFr && progress > highStart && progress < fadeStart) {
+                const aa = Math.min(1, (progress - highStart) * 4) * fadeMul;
+                ctx.font = '300 10px "JetBrains Mono", monospace';
+                ctx.fillStyle = `rgba(220,185,70,${0.6 * aa})`;
+                ctx.textAlign = 'center';
+                const annY = sy > (plot.t + plot.b) / 2 ? sy - 20 : sy + 24;
+                ctx.fillText('correct output — model was guessing', sx, annY);
+                ctx.textAlign = 'left';
+            }
+
+            return ps;
+        }
+
+        // ── Animation ──
+        let t0 = null;
+
+        function frame(ts) {
+            if (!t0) t0 = ts;
+            const elapsed = ts - t0;
+            let ct = elapsed - cycleStart;
+
+            if (ct >= tl.cycle) {
+                cycleStart += tl.cycle;
+                ct = elapsed - cycleStart;
+                episodes = makeEpisodes();
+                tl = buildTimeline(episodes);
+            }
+
+            ctx.clearRect(0, 0, W, H);
+
+            drawBackground();
+            drawBoundary();
+            drawTrainPts();
+            drawLabels();
+            drawLegend();
+
+            const completed = [];
+            let activeBeat = null;
+            let activeP = 0;
+
+            for (const beat of tl.beats) {
+                if (ct >= beat.start + beat.dur) {
+                    completed.push(beat);
+                } else if (ct >= beat.start) {
+                    activeBeat = beat;
+                    activeP = (ct - beat.start) / beat.dur;
+                }
+            }
+
+            drawHistory(completed);
+
+            let ps = 0;
+            if (activeBeat) {
+                ps = drawActive(activeBeat.ep, activeP, elapsed);
+            }
+
+            // ── UI ──
+            const probeEl = document.getElementById('probeVal');
+            if (activeBeat) {
+                const idx = tl.beats.indexOf(activeBeat);
+                document.getElementById('traceNum').textContent = `${idx + 1} / ${tl.beats.length}`;
+
+                const ep = activeBeat.ep;
+                const isFr = ep.type === 'frontier';
+                const classStart = isFr ? 0.32 : 0.42;
+                const highStart = isFr ? 0.50 : 2;
+
+                probeEl.textContent = ps.toFixed(2);
+
+                if (isFr && activeP > highStart) {
+                    document.getElementById('outputVal').textContent = '✓ correct';
+                    document.getElementById('status').textContent = '⚠ frontier';
+                    probeEl.style.color = '#dcb946';
+                } else if (activeP > classStart) {
+                    document.getElementById('outputVal').textContent = ep.correct ? '✓ correct' : '✗ wrong';
+                    document.getElementById('status').textContent = 'classified';
+                    probeEl.style.color = ps > 0.5 ? '#c8785a' : '#9ecfc4';
+                } else if (activeP > 0.05) {
+                    document.getElementById('outputVal').textContent = '—';
+                    document.getElementById('status').textContent = 'reading residual…';
+                    probeEl.style.color = '#9a8e7a';
+                } else {
+                    document.getElementById('outputVal').textContent = '—';
+                    document.getElementById('status').textContent = 'new trace';
+                    probeEl.style.color = '#9a8e7a';
+                }
+            } else {
+                const allDone = completed.length === tl.beats.length;
+                document.getElementById('traceNum').textContent = '—';
+                document.getElementById('outputVal').textContent = '—';
+                document.getElementById('status').textContent = allDone ? 'next batch…' : 'calibrating';
+                probeEl.textContent = '0.00';
+                probeEl.style.color = '#9a8e7a';
+            }
+
+            requestAnimationFrame(frame);
+        }
+
+        requestAnimationFrame(frame);
+    </script>
+</body>
+
+</html>

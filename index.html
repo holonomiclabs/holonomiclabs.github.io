@@ -30,8 +30,23 @@
       font-family: "Computer Modern Serif", "CMU Serif", serif;
     }
 
+    /* ASCII + fluid smoke; height extended in JS so parallax covers full scroll */
+    #stars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: block;
+      width: 100%;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+      will-change: transform;
+    }
+
     .hero {
       position: relative;
+      z-index: 1;
       width: 100%;
       min-height: 100vh;
       height: max(100vh, min(1200px, calc(100vw * 1200 / 1260)));
@@ -56,15 +71,6 @@
 
     .hero:active {
       cursor: grabbing;
-    }
-
-    #stars {
-      position: absolute;
-      inset: 0;
-      display: block;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
     }
 
     #c {
@@ -159,13 +165,13 @@
       letter-spacing: 0.08em;
       font-size: clamp(1rem, 2.4vw, 1.35rem);
       line-height: 1.45;
-      color: #4a9a8a;
+      color: #ffffff;
       margin-top: 0.75rem;
       text-shadow: 0 0 1.5rem rgba(0, 0, 0, 0.9), 0 0 2rem rgba(0, 0, 0, 0.55);
     }
 
     .sub a {
-      color: #5bb8a8;
+      color: #ffffff;
       text-decoration: none;
     }
 
@@ -181,15 +187,90 @@
       letter-spacing: 0.06em;
       font-size: clamp(0.95rem, 2.1vw, 1.2rem);
       line-height: 1.45;
-      color: #4a9a8a;
+      color: #ffffff;
       text-shadow: 0 0 1.5rem rgba(0, 0, 0, 0.9), 0 0 2rem rgba(0, 0, 0, 0.55);
+    }
+
+    .site-main {
+      position: relative;
+      z-index: 1;
+      min-height: 50vh;
+      padding: clamp(2.5rem, 7vw, 5.5rem) min(6vw, 2rem) clamp(4rem, 12vw, 8rem);
+      max-width: 44rem;
+      margin: 0 auto;
+      color: #fefefe;
+      font-size: clamp(1.0625rem, 2.55vw, 1.2rem);
+      line-height: 1.68;
+      letter-spacing: 0.02em;
+    }
+
+    .site-main p {
+      text-shadow: 0 0 14px rgba(5, 5, 5, 0.9), 0 0 28px rgba(5, 5, 5, 0.5);
+    }
+
+    .site-main p+p {
+      margin-top: 1.05rem;
+    }
+
+    .site-main h2 {
+      font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+      font-weight: normal;
+      font-size: clamp(1.5rem, 3.45vw, 1.95rem);
+      color: #5bb8a8;
+      letter-spacing: 0.06em;
+      margin-top: 2.75rem;
+      margin-bottom: 1rem;
+      line-height: 1.25;
+      text-shadow: 0 0 18px rgba(5, 5, 5, 0.95), 0 0 32px rgba(5, 5, 5, 0.45);
+    }
+
+    .site-main h3 {
+      font-family: "Computer Modern Serif", "CMU Serif", serif;
+      font-weight: normal;
+      font-size: clamp(1.08rem, 2.25vw, 1.2rem);
+      color: #5bb8a8;
+      letter-spacing: 0.05em;
+      margin-top: 1.85rem;
+      margin-bottom: 0.7rem;
+      line-height: 1.35;
+      text-shadow: 0 0 12px rgba(5, 5, 5, 0.9);
+    }
+
+    .site-main h2+p,
+    .site-main h3+p {
+      margin-top: 0;
+    }
+
+    .site-main strong {
+      color: #9ecfc4;
+      font-weight: normal;
+      font-variant: small-caps;
+      letter-spacing: 0.06em;
+    }
+
+    /* Embedded demos (demo.html, demo2.html, demo3.html) — iframe avoids canvas#c clash with hero */
+    .essay-embed-demo {
+      margin: 2.25rem 0 2.5rem;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(109, 213, 200, 0.22);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      background: #0a0a0f;
+    }
+
+    .essay-embed-demo iframe {
+      display: block;
+      width: 100%;
+      height: min(72vh, 640px);
+      min-height: 480px;
+      border: 0;
     }
   </style>
 </head>
 
 <body>
+  <canvas id="stars" aria-hidden="true"></canvas>
   <div class="hero" id="hero">
-    <canvas id="stars" aria-hidden="true"></canvas>
     <canvas id="c" width="1260" height="1200"></canvas>
     <div class="hero-copy">
       <div class="wm-wrap">
@@ -207,9 +288,153 @@
     </div>
   </div>
 
+  <main class="site-main">
+    <article>
+
+      <h2>Holonomy</h2>
+      <p>In 1827, Gauss proved something odd about curved surfaces.</p>
+      <p>Take a vector — just an arrow — and lay it flat against a sphere. Slide it along some closed path. Two rules:
+        never twist the vector, and never lift it off the surface. Let the local geometry dictate its direction after
+        every small step. </p>
+
+      <p>The oddity: when you return to where you started, the arrow might be pointing somewhere new.
+        Nothing happened to it. No force acted on it. The rotation accumulated slowly, through the transport itself — a
+        quantity called holonomy. This accumulated rotation is, in fact, a good measure of the global curvature of the
+        surface itself! Surface curvature isn't a local property. You can't see it by staring at a point. You can only
+        detect it by going around a loop and noticing what changed.</p>
+
+      <p>Metaphorically, the vector isn't a passive observer. It goes around the loop pointing one way,
+        and comes back pointing another. Traversing the surface on a closed path fundamentally modifies the orientation
+        of the vector, whose new angle now encodes a summary of both the surface it passed over and the path it took.
+      </p>
+
+      <p>We named the company after this idea: going in loops can update your orientation.</p>
+
+      <figure class="essay-embed-demo">
+        <iframe src="demo.html" title="Holonomy: parallel transport on a sphere (interactive)" loading="lazy"></iframe>
+      </figure>
+
+      <h2>The Intuition</h2>
+      <p>Work with data systems long enough and you develop an uncomfortable intuition: the most important properties of
+        a system are never visible from a single vantage point. Your CEO asks a question. You produce a Dashboard Of
+        Valuable Business Insight. You move on, the organization ETLs into more tables, life continues. Whatever you
+        learned from building that dashboard is lost to time. This is organizational curvature. Your warehouse, your
+        dbt models, your team's tribal knowledge about which columns mean what — these form a surface, and it's curved
+        in ways no schema diagram will show you. The curvature lives in the gaps: joins that silently fan out. Metrics
+        that mean one thing to product and another to finance. Churn models that work beautifully until someone changes
+        an upstream ETL job on a Tuesday night, with commit message: "tiny fix, don't worry".</p>
+
+      <p>Existing data tools and agent harnesses treat this gap purely as a documentation and context problem.
+        Write more markdown. Add more tests. Build a semantic layer. And to be fair, these techniques do usually help.
+        They are also, by construction, brittle and temporally local instruments. They cannot take advantage of
+        knowledge that
+        emerges only from the accumulation of many closed investigation loops.</p>
+      <p>So: we don't map the curvature from a single point, instead choosing to measure the holonomy directly. We
+        instrument the loops, collect the residues, and let the wrinkly geometry of the space reveal itself.</p>
+
+      <figure class="essay-embed-demo">
+        <iframe src="demo2.html" title="Surface development: cones, cylinders, and parallel transport (interactive)"
+          loading="lazy"></iframe>
+      </figure>
+
+      <h2>Holonomic</h2>
+      <p>Our first product is `holonomic` — a collaborative, self-improving agentic system for data question-answering
+        and
+        analytics. Self-hosted and private by default.</p>
+      <p>On the surface, it presents as a natural-language analytics tool: ask questions of your business data → get
+        interactive
+        notebooks, dashboards, and applications as output. That part is increasingly table stakes, getting better and
+        better as foundation models improve. What makes holonomic different is what happens after.</p>
+      <p>Every exploration session produces what we call an agent trace — not a log, but a structured record of a
+        complete traversal through your data environment. What the agent tried. What it got wrong. What it got right.
+        The implicit quality signals embedded in how your team responded to the results.</p>
+      <p>Over time, these traces accumulate. We aggregate and analyze them to drive improvement through three distinct
+        mechanisms:</p>
+
+      <h3>Context Augmentation</h3>
+      <p>The system reads your session transcripts and understands, structurally, what went wrong and why. By reading
+        chain-of-thought reasoning token output, it learns to identify the join that's consistently confusing, the
+        column
+        name that misleads, and the metric definition that has drifted between Finance and Product. These surface as
+        actionable suggestions — for your data team, not just for the model. Think of it as what a very attentive, very
+        patient analyst would notice after sitting in on a hundred user sessions. Explicit, interpretable feedback for
+        your
+        underlying context layer.</p>
+
+      <h3>Weight Adaptation</h3>
+      <p>In addition to context improvements, we also use your sessions — plus implicit usage signals and explicit
+        feedback signals — to bootstrap a reinforcement learning pipeline for the underlying LLM to mold its behavior to
+        your organizational context and desired outcomes. Not prompt engineering, or RAG with better retrieval, but true
+        end-to-end weight adaptation: your schemas, your naming conventions, your dialect of SQL, your team's analytical
+        habits. The off-the-shelf model becomes your own. By treating agent traces as post-training data, we can do
+        something few teams are doing seriously: RL the model and the harness together, in your specific environment,
+        using your own usage as the training signal. The accumulated residue of every loop becomes the curriculum.</p>
+
+      <h3>Residual Stream Activations</h3>
+      <p>Context space and weights space both rely on behavioral signal — what the model did, what the user corrected.
+        But there's a third source of signal, and it's the one we're most excited about exploring: what the model "felt"
+        while it was doing it.</p>
+      <p>Recent work in mechanistic interpretability has shown that transformer internals are far more legible than
+        people assumed. The residual stream — the running sum that passes between layers — acts as a shared
+        communication
+        channel where attention heads read and write structured information. Features in this stream can correspond to
+        recognizable things: concepts, uncertainty, retrieval states, even something abstract, like "hesitation".</p>
+      <p>We enable you to train lightweight attention probes — small classifiers that sit on top of the residual stream
+        at inference time — to detect when the model is confused, by using labeled examples from your traces. Not
+        confused
+        in the sense of producing a wrong answer (evaluations can handle that), but confused in the mechanistic sense:
+        attention heads distributing weight diffusely across candidate schemas, the residual stream carrying competing
+        representations of a column's meaning, the model's internal state consistent with "I am guessing" rather than "I
+        know."</p>
+      <p>This is a fundamentally different kind of signal. Behavioral traces and evals tell you the model was wrong
+        after
+        the fact. Residual stream probes may be able to tell you that the model was uncertain in the moment, even when
+        it happened
+        to get lucky. A prompt that returns correct results but triggers high probe activation is arguably more valuable
+        for training than one that fails outright, because it reveals the frontier of the model's knowledge: the region
+        where it has learned just enough to get by but not enough to be reliable. We feed this signal back into the RL
+        pipeline. Probe activations become a component of the reward model — penalizing confident-but-shaky reasoning,
+        rewarding genuine comprehension.</p>
+      <p>The effect is something like training on the model's epistemic state rather than just its outputs: optimizing
+        not only for what it knows, but for the quality of how it knows it.</p>
+
+      <figure class="essay-embed-demo">
+        <iframe src="demo3.html" title="Residual stream and activation probe: logistic readout (schematic)"
+          loading="lazy"></iframe>
+      </figure>
+
+      <h2>What We Believe</h2>
+      <p><strong>The exploration loop is the correct abstraction, not the query.</strong> One question answered
+        correctly is useful. A
+        thousand questions — answered, corrected, and re-analyzed — is a map. We build primitives for the map.</p>
+      <p><strong>Privacy is paramount.</strong> Your agent traces can be sensitive: they reveal what you're worried
+        about,
+        what you're measuring, and what you don't yet understand. Holonomic can be self-hosted and run on your own
+        infrastructure with zero outbound network connectivity if you want. Full stop.</p>
+      <p><strong>The best data tool makes itself less necessary.</strong> As holonomic works, context improvements feed
+        back into your real infrastructure — better naming, better modeling, better documentation — until the system has
+        less to correct. The goal here is to give you a ratcheting ascender to hill-climb with, not a dependency.</p>
+      <p><strong>Messy is interesting.</strong> Flat spaces have trivial holonomy, but curved spaces are where traversal
+        teaches you something. The more complex your data ecosystem, the more there is to learn from instrumenting the
+        loops — and the organizations that learn fastest from that complexity will outperform those trying to eliminate
+        it.</p>
+      <p><strong>The world does not need more ChatGPT for SQL and Jupyter.</strong> We are building a continuous
+        learning
+        system for analytics; with different affordances and hooks, to meet you where you already are.</p>
+
+      <h2>Talk to Us</h2>
+      <p>Everyone is already "training a mental model" on their interactions with their analytical environment.
+        They're just throwing the dataset away.</p>
+      <p>Holonomic Labs is based in San Francisco. We are building towards this vision. If any of this resonates, we'd
+        like to hear from you.</p>
+    </article>
+  </main>
+
   <script>
     const hero = document.getElementById("hero");
     const starsCanvas = document.getElementById("stars");
+    /** Background moves down the viewport slower than scroll (depth). */
+    const PARALLAX_BG_FACTOR = 0.36;
     const starsCtx = starsCanvas.getContext("2d");
     const canvas = document.getElementById("c");
     const ctx = canvas.getContext("2d");
@@ -471,6 +696,8 @@
     const TPAL = ['#1d9e75', '#4a9a8a', '#2a8a7a', '#3a9a88', '#5bb8a8'];
 
     let GCOLS = 0, GROWS = 0;
+    let lastSimSw = 0,
+      lastSimInnerH = 0;
     let fluidDen, fluidTmp;
     let contentGrid = [];
     let cellAspect = 0.47, cellAspect2 = 0.22;
@@ -818,11 +1045,11 @@
     function getFluidVel(c, r, t) {
       const nx = c / GCOLS, ny = r / GROWS;
       let vx = Math.sin(ny * 6.28 + t * 0.3) * 1.8 +
-               Math.cos((nx + ny) * 11 + t * 0.45) * 0.6 +
-               Math.sin(nx * 20 + ny * 15 + t * 0.7) * 0.2;
+        Math.cos((nx + ny) * 11 + t * 0.45) * 0.6 +
+        Math.sin(nx * 20 + ny * 15 + t * 0.7) * 0.2;
       let vy = Math.cos(nx * 5 + t * 0.35) * 1.3 +
-               Math.sin((nx - ny) * 9 + t * 0.35) * 0.7 +
-               Math.cos(nx * 15 - ny * 20 + t * 0.6) * 0.2;
+        Math.sin((nx - ny) * 9 + t * 0.35) * 0.7 +
+        Math.cos(nx * 15 - ny * 20 + t * 0.6) * 0.2;
       vx += -(ny - 0.5) * 0.4;
       vy += (nx - 0.5) * 0.4;
       vy *= cellAspect;
@@ -881,13 +1108,14 @@
       for (let i = 0; i < N; i++) fluidDen[i] *= 0.997;
     }
 
-    function initFluid(sw, sh) {
+    /** Fluid + content grid use viewport height only; canvas may be taller for parallax slack. */
+    function initFluid(sw, simPixelHeight) {
       starsCtx.font = MONO;
       charW = starsCtx.measureText('M').width || 6.6;
       cellAspect = charW / LINE_H;
       cellAspect2 = cellAspect * cellAspect;
       GCOLS = Math.max(10, Math.floor(sw / charW));
-      GROWS = Math.max(5, Math.floor(sh / LINE_H));
+      GROWS = Math.max(5, Math.floor(simPixelHeight / LINE_H));
       fluidDen = new Float32Array(GCOLS * GROWS);
       fluidTmp = new Float32Array(GCOLS * GROWS);
       fillContentGrid();
@@ -895,25 +1123,42 @@
     }
 
     function resizeStarsCanvas() {
+      const innerH = window.innerHeight;
+      const scrollRange = Math.max(
+        0,
+        document.documentElement.scrollHeight - innerH,
+      );
+      const slack = Math.ceil(scrollRange * PARALLAX_BG_FACTOR);
+      starsCanvas.style.height = `${innerH + slack}px`;
+
       const rect = starsCanvas.getBoundingClientRect();
       const sw = rect.width;
-      const sh = rect.height;
-      if (sw < 1 || sh < 1) return;
+      const layoutH = rect.height;
+      if (sw < 1 || layoutH < 1) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const bw = Math.round(sw * dpr);
-      const bh = Math.round(sh * dpr);
+      const bh = Math.round(layoutH * dpr);
       if (starsCanvas.width !== bw || starsCanvas.height !== bh) {
         starsCanvas.width = bw;
         starsCanvas.height = bh;
         starsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
-      initFluid(sw, sh);
+      const needSimReinit =
+        GCOLS === 0 ||
+        sw !== lastSimSw ||
+        innerH !== lastSimInnerH;
+      if (needSimReinit) {
+        lastSimSw = sw;
+        lastSimInnerH = innerH;
+        initFluid(sw, innerH);
+      }
     }
 
     function drawAsciiArt() {
       const rect = starsCanvas.getBoundingClientRect();
-      const sw = rect.width, sh = rect.height;
-      starsCtx.clearRect(0, 0, sw, sh);
+      const sw = rect.width,
+        layoutH = rect.height;
+      starsCtx.clearRect(0, 0, sw, layoutH);
       if (GCOLS === 0 || GROWS === 0) return;
 
       const now = performance.now();
@@ -928,50 +1173,54 @@
       starsCtx.font = MONO;
       starsCtx.textBaseline = 'top';
       const maxAlpha = 0.45;
+      const tileH = GROWS * LINE_H;
 
-      for (let r = 0; r < GROWS; r++) {
-        const y = r * LINE_H;
-        const row = contentGrid[r];
-        if (!row) continue;
+      for (let ty = 0; ty < layoutH; ty += tileH) {
+        for (let r = 0; r < GROWS; r++) {
+          const y = ty + r * LINE_H;
+          if (y >= layoutH) break;
+          const row = contentGrid[r];
+          if (!row) continue;
 
-        let runStr = '';
-        let runQA = -1;
-        let runX = 0;
+          let runStr = '';
+          let runQA = -1;
+          let runX = 0;
 
-        for (let c = 0; c <= GCOLS; c++) {
-          let qa;
-          if (c < GCOLS) {
-            const d = fluidDen[r * GCOLS + c];
-            qa = d < 0.01 ? 0 : Math.min(10, Math.ceil(d * 10));
-          } else {
-            qa = -1;
-          }
-
-          if (qa !== runQA) {
-            if (runStr.length > 0 && runQA > 0) {
-              starsCtx.globalAlpha = (runQA / 10) * maxAlpha;
-              starsCtx.fillStyle = runQA > 6 ? '#6dd5c8' : runQA > 3 ? '#4a9a8a' : '#2a8a7a';
-              starsCtx.fillText(runStr, runX * charW, y);
-            }
-            runStr = '';
-            runX = c;
-            runQA = qa;
-          }
-
-          if (c < GCOLS && qa > 0) {
-            const ch = row[c];
-            if (ch && ch !== ' ') {
-              runStr += ch;
-            } else if (qa > 4) {
-              runStr += '\u00B7';
+          for (let c = 0; c <= GCOLS; c++) {
+            let qa;
+            if (c < GCOLS) {
+              const d = fluidDen[r * GCOLS + c];
+              qa = d < 0.01 ? 0 : Math.min(10, Math.ceil(d * 10));
             } else {
-              runStr += ' ';
+              qa = -1;
+            }
+
+            if (qa !== runQA) {
+              if (runStr.length > 0 && runQA > 0) {
+                starsCtx.globalAlpha = (runQA / 10) * maxAlpha;
+                starsCtx.fillStyle = runQA > 6 ? '#6dd5c8' : runQA > 3 ? '#4a9a8a' : '#2a8a7a';
+                starsCtx.fillText(runStr, runX * charW, y);
+              }
+              runStr = '';
+              runX = c;
+              runQA = qa;
+            }
+
+            if (c < GCOLS && qa > 0) {
+              const ch = row[c];
+              if (ch && ch !== ' ') {
+                runStr += ch;
+              } else if (qa > 4) {
+                runStr += '\u00B7';
+              } else {
+                runStr += ' ';
+              }
             }
           }
         }
       }
 
-      const scanY = (now * 0.03) % (sh + 200) - 100;
+      const scanY = (now * 0.03) % (layoutH + 200) - 100;
       starsCtx.globalAlpha = 0.025;
       starsCtx.fillStyle = '#6dd5c8';
       starsCtx.fillRect(0, scanY, sw, 1.5);
@@ -1257,9 +1506,17 @@
       requestAnimationFrame(draw);
     }
 
+    function updateStarsParallax() {
+      const y = -window.scrollY * PARALLAX_BG_FACTOR;
+      starsCanvas.style.transform = `translate3d(0, ${y}px, 0)`;
+    }
+
     window.addEventListener("resize", resizeStarsCanvas);
+    window.addEventListener("scroll", updateStarsParallax, { passive: true });
     new ResizeObserver(resizeStarsCanvas).observe(hero);
+    new ResizeObserver(resizeStarsCanvas).observe(document.documentElement);
     resizeStarsCanvas();
+    updateStarsParallax();
     document.fonts.ready.then(resizeStarsCanvas);
     draw();
   </script>

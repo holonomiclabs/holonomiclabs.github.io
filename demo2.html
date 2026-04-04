@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surface Development — Holonomy</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@300&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0a0f;
+            color: #d4cfc4;
+            font-family: 'EB Garamond', serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 400;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 0.3rem;
+            color: #e8e2d6;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 300;
+            color: #7a7568;
+            margin-bottom: 0;
+            letter-spacing: 0.05em;
+        }
+
+        .dev-header-wrap {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            cursor: help;
+            max-width: min(32rem, 94vw);
+        }
+
+        .dev-header-wrap h1 {
+            border-bottom: 1px dotted rgba(154, 142, 122, 0.45);
+            padding-bottom: 0.15rem;
+            transition: color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .dev-header-wrap:hover h1,
+        .dev-header-wrap:focus-within h1 {
+            color: #f2ebe0;
+            border-bottom-color: rgba(200, 120, 90, 0.55);
+        }
+
+        .dev-tip {
+            position: absolute;
+            left: 50%;
+            top: calc(100% + 0.45rem);
+            transform: translateX(-50%) translateY(-4px) scale(0.98);
+            width: max-content;
+            max-width: min(26rem, 92vw);
+            padding: 0.75rem 0.95rem 0.85rem;
+            text-align: left;
+            font-family: 'EB Garamond', serif;
+            font-size: 0.92rem;
+            font-weight: 400;
+            line-height: 1.45;
+            letter-spacing: 0.02em;
+            color: #e8e2d6;
+            background: linear-gradient(160deg, rgba(42, 36, 32, 0.98) 0%, rgba(24, 22, 20, 0.99) 100%);
+            border: 1px solid rgba(200, 120, 90, 0.38);
+            border-radius: 8px;
+            box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.2s linear;
+            z-index: 20;
+        }
+
+        .dev-tip::after {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-bottom-color: rgba(32, 28, 26, 0.98);
+            filter: drop-shadow(0 -1px 0 rgba(200, 120, 90, 0.2));
+        }
+
+        .dev-header-wrap:hover .dev-tip,
+        .dev-header-wrap:focus-within .dev-tip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+
+        canvas { display: block; border-radius: 4px; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+
+        .info-bar {
+            display: flex;
+            gap: 2.5rem;
+            margin-top: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 300;
+            color: #5a5548;
+            letter-spacing: 0.03em;
+        }
+        .info-bar span { color: #9a8e7a; }
+
+        .angle-display {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #5a5548;
+            text-align: right;
+            line-height: 1.6;
+        }
+        .angle-display .val { color: #c8785a; font-size: 0.85rem; }
+    </style>
+</head>
+
+<body>
+    <div class="dev-header-wrap" tabindex="0" aria-describedby="dev-transport-tip">
+        <h1>Development</h1>
+        <div class="subtitle">cones, cylinders &amp; the Levi-Civita connection</div>
+        <div class="dev-tip" id="dev-transport-tip" role="tooltip">
+            No twisting and no lifting is parallel transport — the Levi-Civita connection on the sphere. To draw the
+            unfolding, each leg of the path is placed on the developable surface tangent to the sphere along that arc:
+            a great-circle (geodesic) segment lies on a tangent cylinder and flattens to a straight segment in the plane;
+            a small-circle segment lies on a tangent cone and flattens to a circular arc when the cone sector is unrolled.
+            Trace the path on the matching cylinder or cone between consecutive corners, slit, and lay the sheet flat so
+            tangents stay coherent along the cut; the angle by which a closed loop fails to close in the plane is
+            holonomy.
+        </div>
+    </div>
+    <canvas id="c"></canvas>
+    <div class="info-bar">
+        <div>phase: <span id="phase">—</span></div>
+        <div>progress: <span id="progress">0%</span></div>
+    </div>
+    <div class="angle-display">
+        holonomy<br>
+        <span class="val" id="deficit">0.00°</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+
+        const W = Math.min(window.innerWidth * 0.95, 1280);
+        const H = Math.min(window.innerHeight * 0.62, W * 0.5, 580);
+        canvas.width = W; canvas.height = H;
+
+        const DIVX = W * 0.42;
+        const SPH_CX = DIVX * 0.5, SPH_CY = H * 0.5;
+        const SPH_R = Math.min(DIVX, H) * 0.38;
+        const DEV_L = DIVX + 20, DEV_R = W - 20, DEV_T = 30, DEV_B = H - 30;
+
+        // ==================== MATH ====================
+        function sph2cart(th, ph) {
+            return [Math.sin(th) * Math.cos(ph), Math.sin(th) * Math.sin(ph), Math.cos(th)];
+        }
+        function norm(v) {
+            const l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+            return l < 1e-12 ? v : [v[0] / l, v[1] / l, v[2] / l];
+        }
+        function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+        function cross(a, b) {
+            return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+        }
+        function vadd(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+        function vsub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+        function vsc(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+        function vlen(v) { return Math.sqrt(dot(v, v)); }
+
+        function slerp(a, b, t) {
+            let d = Math.max(-1, Math.min(1, dot(a, b)));
+            const om = Math.acos(d);
+            if (om < 1e-8) return a;
+            const s = Math.sin(om);
+            return vadd(vsc(a, Math.sin((1 - t) * om) / s), vsc(b, Math.sin(t * om) / s));
+        }
+
+        function parallelTransport(vec, p1, p2) {
+            const c = cross(p1, p2);
+            const sA = Math.sqrt(dot(c, c));
+            if (sA < 1e-12) return vec;
+            const ax = vsc(c, 1 / sA), cA = dot(p1, p2);
+            const cv = cross(ax, vec), dv = dot(ax, vec);
+            let r = vadd(vadd(vsc(vec, cA), vsc(cv, sA)), vsc(ax, dv * (1 - cA)));
+            r = vsub(r, vsc(p2, dot(r, p2)));
+            const ol = Math.sqrt(dot(vec, vec)), nl = Math.sqrt(dot(r, r));
+            if (nl > 1e-12) r = vsc(r, ol / nl);
+            return r;
+        }
+
+        // ==================== PATH PROPAGATION ====================
+
+        function propGeo(P, d, s) {
+            return [
+                norm(vadd(vsc(P, Math.cos(s)), vsc(d, Math.sin(s)))),
+                norm(vadd(vsc(P, -Math.sin(s)), vsc(d, Math.cos(s))))
+            ];
+        }
+
+        function propCircle(P, d, kappa, s) {
+            const rho = Math.atan2(1, kappa);
+            const n = norm(cross(P, d));
+            const C = vadd(vsc(P, Math.cos(rho)), vsc(n, Math.sin(rho)));
+            const e_r = norm(vsub(P, vsc(C, dot(P, C))));
+            const e_phi = norm(cross(C, e_r));
+            const phi = s / Math.sin(rho);
+            const nr = vadd(vsc(e_r, Math.cos(phi)), vsc(e_phi, Math.sin(phi)));
+            const nP = norm(vadd(vsc(C, Math.cos(rho)), vsc(nr, Math.sin(rho))));
+            const nD = norm(vadd(vsc(e_r, -Math.sin(phi)), vsc(e_phi, Math.cos(phi))));
+            return [nP, nD, C, rho, e_r, e_phi];
+        }
+
+        // ==================== PATH CONSTRUCTION ====================
+
+        const P0_COLAT = 1.0;
+        const HDG = Math.PI / 5;
+        const KAPPA = 1.5;
+        const TURN_ANGLE = 3.4;
+        const R_DEV = 1 / KAPPA;
+        const ARC_LEN = TURN_ANGLE / KAPPA;
+
+        const P0 = sph2cart(P0_COLAT, 0);
+        const e_th = norm([Math.cos(P0_COLAT), 0, -Math.sin(P0_COLAT)]);
+        const e_ph = [0, 1, 0];
+        const d1_init = norm(vadd(vsc(e_th, -Math.cos(HDG)), vsc(e_ph, Math.sin(HDG))));
+
+        function closureErr(L1) {
+            const [B1, dB1] = propGeo(P0, d1_init, L1);
+            const [B2, dB2] = propCircle(B1, dB1, KAPPA, ARC_LEN);
+            return dot(P0, cross(B2, dB2));
+        }
+
+        function findL1() {
+            let lo = 0.05, hi = 3.0, elo = closureErr(lo);
+            for (let t = 0.05; t < 3.0; t += 0.02) {
+                const e = closureErr(t);
+                if (e * elo <= 0) { lo = t - 0.02; hi = t; break; }
+                elo = e;
+            }
+            for (let i = 0; i < 60; i++) {
+                const mid = (lo + hi) / 2;
+                closureErr(mid) * closureErr(lo) <= 0 ? hi = mid : lo = mid;
+            }
+            return (lo + hi) / 2;
+        }
+
+        const L1 = findL1();
+        const [B1, dB1] = propGeo(P0, d1_init, L1);
+        const [B2, dB2, circleCenter, circleRho, circ_er, circ_ephi] = propCircle(B1, dB1, KAPPA, ARC_LEN);
+
+        const dirToP0 = norm(vsub(P0, vsc(B2, dot(P0, B2))));
+        const L3sign = dot(dB2, dirToP0) > 0 ? 1 : -1;
+        const L3raw = Math.acos(Math.max(-1, Math.min(1, dot(B2, P0))));
+        const L3 = L3sign > 0 ? L3raw : 2 * Math.PI - L3raw;
+
+        console.log('L1:', L1.toFixed(4), 'L3:', L3.toFixed(4), 'ArcLen:', ARC_LEN.toFixed(4));
+        console.log('Closure err:', closureErr(L1).toExponential(3));
+
+        // ==================== SAMPLE PATH ====================
+        const N1 = 80, N2 = 100, N3 = 80;
+        const path3D = [], segBreaks = [0];
+
+        for (let i = 0; i <= N1; i++) {
+            const [p] = propGeo(P0, d1_init, L1 * i / N1);
+            path3D.push(p);
+        }
+        segBreaks.push(path3D.length - 1);
+
+        for (let i = 1; i <= N2; i++) {
+            const [p] = propCircle(B1, dB1, KAPPA, ARC_LEN * i / N2);
+            path3D.push(p);
+        }
+        segBreaks.push(path3D.length - 1);
+
+        for (let i = 1; i <= N3; i++) {
+            const [p] = propGeo(B2, dB2, L3 * i / N3);
+            path3D.push(p);
+        }
+        const TOT = path3D.length;
+
+        // ==================== PARALLEL TRANSPORT ====================
+        const initTan = (() => {
+            let t = vsub(path3D[1], vsc(P0, dot(path3D[1], P0)));
+            t = norm(t);
+            return vsc(t, 0.22);
+        })();
+
+        const trans = [initTan];
+        for (let i = 1; i < TOT; i++) trans.push(parallelTransport(trans[i - 1], path3D[i - 1], path3D[i]));
+
+        const fV = norm(trans[TOT - 1]), iV = norm(initTan);
+        let holAngle = Math.acos(Math.max(-1, Math.min(1, dot(fV, iV))));
+        if (dot(cross(iV, fV), P0) < 0) holAngle = -holAngle;
+        const holDeg = holAngle * 180 / Math.PI;
+        console.log('Holonomy:', holDeg.toFixed(2), '°');
+
+        // ==================== DEVELOPMENT ====================
+
+        const devPts = [];
+        let devX = 0, devY = 0, devDir = 0;
+
+        for (let i = 0; i <= N1; i++) {
+            const s = L1 * i / N1;
+            devPts.push({ x: devX + s * Math.cos(devDir), y: devY + s * Math.sin(devDir) });
+        }
+        devX += L1 * Math.cos(devDir);
+        devY += L1 * Math.sin(devDir);
+
+        const arcCX = devX - R_DEV * Math.sin(devDir);
+        const arcCY = devY + R_DEV * Math.cos(devDir);
+        const arcStart = devDir - Math.PI / 2;
+
+        for (let i = 1; i <= N2; i++) {
+            const phi = TURN_ANGLE * i / N2;
+            const a = arcStart + phi;
+            devPts.push({ x: arcCX + R_DEV * Math.cos(a), y: arcCY + R_DEV * Math.sin(a) });
+        }
+        devX = arcCX + R_DEV * Math.cos(arcStart + TURN_ANGLE);
+        devY = arcCY + R_DEV * Math.sin(arcStart + TURN_ANGLE);
+        devDir += TURN_ANGLE;
+
+        for (let i = 1; i <= N3; i++) {
+            const s = L3 * i / N3;
+            devPts.push({ x: devX + s * Math.cos(devDir), y: devY + s * Math.sin(devDir) });
+        }
+
+        for (const p of devPts) p.y = -p.y;
+        const arcCYflip = -arcCY;
+
+        const STRIP_HW = 0.06;
+        let dMinX = Infinity, dMaxX = -Infinity, dMinY = Infinity, dMaxY = -Infinity;
+        for (const p of devPts) {
+            dMinX = Math.min(dMinX, p.x); dMaxX = Math.max(dMaxX, p.x);
+            dMinY = Math.min(dMinY, p.y); dMaxY = Math.max(dMaxY, p.y);
+        }
+        dMinX = Math.min(dMinX, arcCX - R_DEV);
+        dMaxX = Math.max(dMaxX, arcCX + R_DEV);
+        dMinY = Math.min(dMinY, -arcCY - R_DEV);
+        dMaxY = Math.max(dMaxY, -arcCY + R_DEV);
+        const devPad = 0.35;
+        dMinX -= devPad; dMaxX += devPad; dMinY -= devPad; dMaxY += devPad;
+        const devScale = Math.min((DEV_R - DEV_L) / (dMaxX - dMinX), (DEV_B - DEV_T) / (dMaxY - dMinY)) * 0.82;
+        const devOX = (DEV_L + DEV_R) / 2 - (dMinX + dMaxX) / 2 * devScale;
+        const devOY = (DEV_T + DEV_B) / 2 - (dMinY + dMaxY) / 2 * devScale;
+
+        function d2s(p) { return { x: p.x * devScale + devOX, y: p.y * devScale + devOY }; }
+
+        const legDir = [];
+        for (let g = 0; g < 3; g++) {
+            const si = segBreaks[g], ei = g < 2 ? segBreaks[g + 1] : TOT - 1;
+            const s = d2s(devPts[si]), e = d2s(devPts[ei]);
+            legDir.push(Math.atan2(e.y - s.y, e.x - s.x));
+        }
+
+        // ==================== 3D PROJECTION ====================
+        function rotY(p, a) { const c = Math.cos(a), s = Math.sin(a); return [c * p[0] + s * p[2], p[1], -s * p[0] + c * p[2]]; }
+        function rotX(p, a) { const c = Math.cos(a), s = Math.sin(a); return [p[0], c * p[1] - s * p[2], s * p[1] + c * p[2]]; }
+        function proj(p, ry, rx) {
+            let q = rotY(p, ry); q = rotX(q, rx);
+            const s = 1.0 + q[2] * 0.15;
+            return { x: SPH_CX + q[0] * SPH_R * s, y: SPH_CY - q[1] * SPH_R * s, z: q[2] };
+        }
+
+        // ==================== CAMERA ====================
+        let camRY = -0.3, camRX = 0.45;
+        let isDrag = false, lmx = 0, lmy = 0, velY = 0, velX = 0, idleT = 0;
+
+        canvas.addEventListener('mousedown', e => {
+            if (e.clientX - canvas.getBoundingClientRect().left > DIVX) return;
+            isDrag = true; lmx = e.clientX; lmy = e.clientY; velY = velX = 0;
+        });
+        window.addEventListener('mousemove', e => {
+            if (!isDrag) return;
+            velY = (e.clientX - lmx) * 0.007; velX = -(e.clientY - lmy) * 0.007;
+            camRY += velY; camRX = Math.max(-1.52, Math.min(1.97, camRX + velX));
+            lmx = e.clientX; lmy = e.clientY; idleT = 0;
+        });
+        window.addEventListener('mouseup', () => isDrag = false);
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault(); isDrag = true;
+            lmx = e.touches[0].clientX; lmy = e.touches[0].clientY; velY = velX = 0;
+        }, { passive: false });
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault(); if (!isDrag) return;
+            const t = e.touches[0];
+            velY = (t.clientX - lmx) * 0.007; velX = -(t.clientY - lmy) * 0.007;
+            camRY += velY; camRX = Math.max(-1.52, Math.min(1.97, camRX + velX));
+            lmx = t.clientX; lmy = t.clientY; idleT = 0;
+        }, { passive: false });
+        canvas.addEventListener('touchend', () => isDrag = false);
+
+        // ==================== DRAWING HELPERS ====================
+        function arrow(x1, y1, x2, y2, col, lw) {
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+            ctx.strokeStyle = col; ctx.lineWidth = lw || 2.5; ctx.stroke();
+            const ddx = x2 - x1, ddy = y2 - y1, len = Math.sqrt(ddx * ddx + ddy * ddy);
+            if (len > 5) {
+                const a = Math.atan2(ddy, ddx), hl = 8;
+                ctx.beginPath();
+                ctx.moveTo(x2, y2); ctx.lineTo(x2 - hl * Math.cos(a - 0.35), y2 - hl * Math.sin(a - 0.35));
+                ctx.moveTo(x2, y2); ctx.lineTo(x2 - hl * Math.cos(a + 0.35), y2 - hl * Math.sin(a + 0.35));
+                ctx.strokeStyle = col; ctx.lineWidth = lw || 2; ctx.stroke();
+            }
+        }
+
+        // ==================== SPHERE DRAWING ====================
+        function drawSphWire(ry, rx) {
+            for (let lat = 1; lat < 6; lat++) {
+                const th = (lat / 6) * Math.PI;
+                ctx.beginPath();
+                for (let i = 0; i <= 80; i++) {
+                    const p = proj(sph2cart(th, (i / 80) * Math.PI * 2), ry, rx);
+                    i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+                }
+                ctx.strokeStyle = 'rgba(212,207,196,0.06)'; ctx.lineWidth = 0.5; ctx.stroke();
+            }
+            for (let lon = 0; lon < 8; lon++) {
+                const ph = (lon / 8) * Math.PI * 2;
+                ctx.beginPath();
+                for (let i = 0; i <= 60; i++) {
+                    const p = proj(sph2cart((i / 60) * Math.PI, ph), ry, rx);
+                    i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+                }
+                ctx.strokeStyle = 'rgba(212,207,196,0.06)'; ctx.lineWidth = 0.5; ctx.stroke();
+            }
+            ctx.beginPath(); ctx.arc(SPH_CX, SPH_CY, SPH_R * 1.02, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(212,207,196,0.1)'; ctx.lineWidth = 1; ctx.stroke();
+        }
+
+        function drawSphPath(ry, rx) {
+            ctx.beginPath();
+            for (let i = 0; i < TOT; i++) {
+                const p = proj(path3D[i], ry, rx);
+                i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+            }
+            ctx.strokeStyle = 'rgba(120,140,160,0.2)'; ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 4]); ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        function drawSphTraversed(ry, rx, idx) {
+            if (idx < 0) return;
+            ctx.beginPath();
+            for (let i = 0; i <= Math.min(idx + 1, TOT - 1); i++) {
+                const p = proj(path3D[i], ry, rx);
+                i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+            }
+            ctx.strokeStyle = 'rgba(200,120,90,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+        }
+
+        function drawSphVec(pos, vec, ry, rx, col) {
+            const tip = norm(vadd(pos, vec));
+            const p1 = proj(pos, ry, rx), p2 = proj(tip, ry, rx);
+            if (p1.z < -0.3 && p2.z < -0.3) return;
+            arrow(p1.x, p1.y, p2.x, p2.y, col);
+        }
+
+        function drawSphVert(pos, ry, rx, label) {
+            const p = proj(pos, ry, rx);
+            if (p.z < -0.2) return;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#e8e2d6'; ctx.fill();
+            ctx.font = '600 13px "EB Garamond", serif';
+            ctx.fillStyle = 'rgba(232,226,214,0.6)';
+            ctx.fillText(label, p.x + 8, p.y - 8);
+        }
+
+        function drawSphHighlight(ry, rx, pieceIdx, progress) {
+            const col = 'rgba(200,160,90,0.5)';
+            if (pieceIdx === 0 || pieceIdx === 2) {
+                const segIdx = pieceIdx === 0 ? 0 : 2;
+                const si = segBreaks[segIdx], ei = segIdx < 2 ? segBreaks[segIdx + 1] : TOT - 1;
+                const endI = si + Math.floor((ei - si) * progress);
+                ctx.beginPath();
+                for (let i = si; i <= endI; i++) {
+                    const p = proj(path3D[i], ry, rx);
+                    i === si ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+                }
+                ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
+            } else {
+                const si = segBreaks[1], ei = segBreaks[2];
+                const endI = si + Math.floor((ei - si) * progress);
+                ctx.beginPath();
+                for (let i = si; i <= endI; i++) {
+                    const p = proj(path3D[i], ry, rx);
+                    i === si ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+                }
+                ctx.strokeStyle = 'rgba(180,130,70,0.5)'; ctx.lineWidth = 3; ctx.stroke();
+            }
+        }
+
+        // ==================== DEVELOPMENT DRAWING ====================
+
+        function drawDevStrip(segIdx, progress) {
+            if (progress <= 0) return;
+            const si = segBreaks[segIdx], ei = segIdx < 2 ? segBreaks[segIdx + 1] : TOT - 1;
+            const s = d2s(devPts[si]), e = d2s(devPts[ei]);
+            const dir = legDir[segIdx];
+            const hw = STRIP_HW * devScale;
+            const px = Math.cos(dir + Math.PI / 2) * hw;
+            const py = Math.sin(dir + Math.PI / 2) * hw;
+            const ex = s.x + (e.x - s.x) * progress;
+            const ey = s.y + (e.y - s.y) * progress;
+            ctx.beginPath();
+            ctx.moveTo(s.x + px, s.y + py); ctx.lineTo(ex + px, ey + py);
+            ctx.lineTo(ex - px, ey - py); ctx.lineTo(s.x - px, s.y - py);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(70,95,130,0.13)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(70,95,130,0.28)'; ctx.lineWidth = 0.7; ctx.stroke();
+        }
+
+        function drawDevSector(progress) {
+            if (progress <= 0) return;
+            const cScreen = d2s({ x: arcCX, y: -arcCY });
+            const rScreen = R_DEV * devScale;
+            const screenStartA = -(arcStart);
+            const sweepAmt = -TURN_ANGLE * progress;
+
+            ctx.beginPath();
+            ctx.moveTo(cScreen.x, cScreen.y);
+            const steps = 40;
+            for (let i = 0; i <= steps; i++) {
+                const a = screenStartA + sweepAmt * i / steps;
+                ctx.lineTo(cScreen.x + rScreen * Math.cos(a), cScreen.y + rScreen * Math.sin(a));
+            }
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(180,125,70,0.13)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(180,125,70,0.28)'; ctx.lineWidth = 0.7; ctx.stroke();
+        }
+
+        function drawDevTraversed(idx) {
+            if (idx < 0) return;
+            ctx.beginPath();
+            for (let i = 0; i <= Math.min(idx + 1, TOT - 1); i++) {
+                const p = d2s(devPts[i]);
+                i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+            }
+            ctx.strokeStyle = 'rgba(200,120,90,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+        }
+
+        function drawDevVec(devPt, col) {
+            const p = d2s(devPt);
+            const vl = 0.22 * devScale;
+            const screenDir = legDir[0];
+            arrow(p.x, p.y, p.x + vl * Math.cos(screenDir), p.y + vl * Math.sin(screenDir), col);
+        }
+
+        function drawDevVert(idx, label) {
+            const p = d2s(devPts[idx]);
+            ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#e8e2d6'; ctx.fill();
+            ctx.font = '600 13px "EB Garamond", serif';
+            ctx.fillStyle = 'rgba(232,226,214,0.6)';
+            ctx.fillText(label, p.x + 8, p.y - 8);
+        }
+
+        function drawDevLabels(unfold) {
+            ctx.font = '300 9px "JetBrains Mono", monospace';
+            ctx.fillStyle = 'rgba(122,117,104,0.4)';
+            if (unfold > 0.05) {
+                const m = d2s(devPts[Math.floor(segBreaks[1] / 2)]);
+                const dir = legDir[0], ox = -Math.sin(dir) * 16, oy = Math.cos(dir) * 16;
+                ctx.fillText('cylinder', m.x + ox - 20, m.y + oy + 3);
+            }
+            if (unfold > 0.4) {
+                const cS = d2s({ x: arcCX, y: -arcCY });
+                ctx.fillText('cone', cS.x - 12, cS.y - 4);
+            }
+            if (unfold > 0.75) {
+                const si = segBreaks[2], ei = TOT - 1;
+                const m = d2s(devPts[Math.floor((si + ei) / 2)]);
+                const dir = legDir[2], ox = -Math.sin(dir) * 16, oy = Math.cos(dir) * 16;
+                ctx.fillText('cylinder', m.x + ox - 20, m.y + oy + 3);
+            }
+        }
+
+        function drawDevGap(transportT) {
+            if (transportT < 0.9) return;
+            const fade = Math.min((transportT - 0.9) / 0.1, 1);
+            const pA = d2s(devPts[0]), pAp = d2s(devPts[TOT - 1]);
+            ctx.beginPath(); ctx.moveTo(pAp.x, pAp.y); ctx.lineTo(pA.x, pA.y);
+            ctx.strokeStyle = `rgba(200,120,90,${0.35 * fade})`;
+            ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+            const mx = (pA.x + pAp.x) / 2, my = (pA.y + pAp.y) / 2;
+            ctx.font = `300 10px "JetBrains Mono", monospace`;
+            ctx.fillStyle = `rgba(200,120,90,${0.6 * fade})`;
+            ctx.fillText('holonomy gap', mx - 33, my - 8);
+        }
+
+        // ==================== ANIMATION ====================
+        const PHASES = [
+            ['unfold', 4000], ['waitOpen', 500], ['transport', 5000], ['hold', 2000],
+            ['rewind', 5000], ['waitClose', 500], ['refold', 4000], ['rest', 1200]
+        ];
+        const CYCLE = PHASES.reduce((s, p) => s + p[1], 0);
+
+        function getPhase(t) {
+            let e = t % CYCLE;
+            for (const [name, dur] of PHASES) {
+                if (e < dur) return { name, p: e / dur };
+                e -= dur;
+            }
+            return { name: 'rest', p: 1 };
+        }
+
+        function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+        let t0 = null;
+
+        function frame(ts) {
+            if (!t0) t0 = ts;
+            const elapsed = ts - t0;
+            const ph = getPhase(elapsed);
+
+            if (!isDrag) {
+                camRY += velY; camRX += velX;
+                camRX = Math.max(-1.52, Math.min(1.97, camRX));
+                velY *= 0.92; velX *= 0.92;
+                idleT += 1 / 60;
+                if (idleT > 2) camRY += 0.04 * (1 / 60) * Math.min((idleT - 2) / 3, 1);
+            }
+
+            let unfold = 0, transportT = -1;
+            switch (ph.name) {
+                case 'unfold': unfold = ease(ph.p); break;
+                case 'waitOpen': unfold = 1; break;
+                case 'transport': unfold = 1; transportT = ease(ph.p); break;
+                case 'hold': unfold = 1; transportT = 1; break;
+                case 'rewind': unfold = 1; transportT = 1 - ease(ph.p); break;
+                case 'waitClose': unfold = 1; break;
+                case 'refold': unfold = 1 - ease(ph.p); break;
+                case 'rest': unfold = 0; break;
+            }
+
+            const ry = camRY, rx = camRX;
+            ctx.clearRect(0, 0, W, H);
+
+            ctx.beginPath(); ctx.moveTo(DIVX, 20); ctx.lineTo(DIVX, H - 20);
+            ctx.strokeStyle = 'rgba(212,207,196,0.07)'; ctx.lineWidth = 1; ctx.stroke();
+
+            ctx.font = '300 11px "JetBrains Mono", monospace';
+            ctx.fillStyle = 'rgba(122,117,104,0.45)';
+            ctx.fillText('S\u00B2', SPH_CX - 4, 18);
+            if (unfold > 0) {
+                ctx.fillStyle = `rgba(122,117,104,${0.45 * Math.min(unfold * 3, 1)})`;
+                ctx.fillText('development', (DEV_L + DEV_R) / 2 - 35, 18);
+            }
+
+            // ---- SPHERE ----
+            drawSphWire(ry, rx);
+            drawSphPath(ry, rx);
+
+            if (unfold > 0 && unfold < 1) {
+                const pieceIdx = Math.min(Math.floor(unfold * 3), 2);
+                const pieceProg = Math.max(0, Math.min(1, unfold * 3 - pieceIdx));
+                drawSphHighlight(ry, rx, pieceIdx, pieceProg);
+            }
+
+            if (transportT >= 0) {
+                const pi = Math.min(Math.floor(transportT * (TOT - 1)), TOT - 2);
+                const fr = transportT * (TOT - 1) - pi;
+                drawSphTraversed(ry, rx, pi);
+                const curP = norm(slerp(path3D[pi], path3D[Math.min(pi + 1, TOT - 1)], fr));
+                const curV = vadd(vsc(trans[pi], 1 - fr), vsc(trans[Math.min(pi + 1, TOT - 1)], fr));
+                drawSphVec(curP, curV, ry, rx, '#c8785a');
+                drawSphVec(path3D[0], initTan, ry, rx, 'rgba(90,160,130,0.55)');
+                if (transportT > 0.95) {
+                    drawSphVec(path3D[0], trans[TOT - 1], ry, rx, 'rgba(200,120,90,0.7)');
+                }
+                const pp = proj(curP, ry, rx);
+                if (pp.z > -0.1) {
+                    ctx.beginPath(); ctx.arc(pp.x, pp.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#e8e2d6'; ctx.fill();
+                }
+            }
+
+            drawSphVert(P0, ry, rx, 'P\u2080');
+            drawSphVert(B1, ry, rx, 'B\u2081');
+            drawSphVert(B2, ry, rx, 'B\u2082');
+
+            // ---- DEVELOPMENT ----
+            if (unfold > 0) {
+                const nPieces = 3;
+                for (let i = 0; i < nPieces; i++) {
+                    const ps = i / nPieces, pe = (i + 1) / nPieces;
+                    const pp = Math.max(0, Math.min(1, (unfold - ps) / (pe - ps)));
+                    if (i === 0) drawDevStrip(0, pp);
+                    else if (i === 1) drawDevSector(pp);
+                    else drawDevStrip(2, pp);
+                }
+
+                drawDevLabels(unfold);
+
+                const visIdx = (() => {
+                    if (unfold <= 1 / 3) return Math.floor(segBreaks[1] * unfold * 3);
+                    if (unfold <= 2 / 3) return segBreaks[1] + Math.floor((segBreaks[2] - segBreaks[1]) * (unfold * 3 - 1));
+                    return segBreaks[2] + Math.floor((TOT - 1 - segBreaks[2]) * (unfold * 3 - 2));
+                })();
+                if (visIdx >= 0) {
+                    ctx.beginPath();
+                    for (let i = 0; i <= Math.min(visIdx, TOT - 1); i++) {
+                        const p = d2s(devPts[i]);
+                        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+                    }
+                    ctx.strokeStyle = unfold >= 1 ? 'rgba(120,140,160,0.18)' : 'rgba(120,140,160,0.12)';
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([3, 4]); ctx.stroke(); ctx.setLineDash([]);
+                }
+
+                if (transportT >= 0) {
+                    const pi = Math.min(Math.floor(transportT * (TOT - 1)), TOT - 2);
+                    const fr = transportT * (TOT - 1) - pi;
+                    drawDevTraversed(pi);
+                    const dCur = {
+                        x: devPts[pi].x + (devPts[Math.min(pi + 1, TOT - 1)].x - devPts[pi].x) * fr,
+                        y: devPts[pi].y + (devPts[Math.min(pi + 1, TOT - 1)].y - devPts[pi].y) * fr
+                    };
+                    drawDevVec(dCur, '#c8785a');
+                    drawDevVec(devPts[0], 'rgba(90,160,130,0.55)');
+                    const dp = d2s(dCur);
+                    ctx.beginPath(); ctx.arc(dp.x, dp.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#e8e2d6'; ctx.fill();
+                    drawDevGap(transportT);
+                }
+
+                if (unfold >= 0.05) drawDevVert(0, 'P\u2080');
+                if (unfold >= 0.3) drawDevVert(segBreaks[1], 'B\u2081');
+                if (unfold >= 0.6) drawDevVert(segBreaks[2], 'B\u2082');
+                if (unfold >= 0.9) drawDevVert(TOT - 1, "P\u2080\u2032");
+            }
+
+            // ---- UI ----
+            const phaseLabels = {
+                unfold: 'unfold', waitOpen: 'ready', transport: 'transport \u2192',
+                hold: 'complete', rewind: '\u2190 rewind', waitClose: 'ready', refold: 'refold', rest: '\u2014'
+            };
+            document.getElementById('phase').textContent = phaseLabels[ph.name] || ph.name;
+
+            if (transportT >= 0) {
+                document.getElementById('progress').textContent = Math.round(transportT * 100) + '%';
+            } else if (ph.name === 'unfold') {
+                document.getElementById('progress').textContent = Math.round(unfold * 100) + '%';
+            } else if (ph.name === 'refold') {
+                document.getElementById('progress').textContent = Math.round((1 - unfold) * 100) + '%';
+            } else {
+                document.getElementById('progress').textContent = '\u2014';
+            }
+
+            const dispHol = transportT >= 0 ? Math.abs(holDeg) * Math.min(transportT * 1.2, 1) : 0;
+            document.getElementById('deficit').textContent = dispHol.toFixed(1) + '\u00B0';
+
+            requestAnimationFrame(frame);
+        }
+
+        requestAnimationFrame(frame);
+    </script>
+</body>
+</html>

@@ -44,6 +44,76 @@
             letter-spacing: 0.05em;
         }
 
+        .sphere-header-wrap {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            cursor: help;
+            max-width: min(32rem, 94vw);
+        }
+
+        .sphere-header-wrap .subtitle {
+            margin-bottom: 0;
+        }
+
+        .sphere-header-wrap h1 {
+            border-bottom: 1px dotted rgba(154, 142, 122, 0.45);
+            padding-bottom: 0.15rem;
+            transition: color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .sphere-header-wrap:hover h1,
+        .sphere-header-wrap:focus-within h1 {
+            color: #f2ebe0;
+            border-bottom-color: rgba(200, 120, 90, 0.55);
+        }
+
+        .sphere-tip {
+            position: absolute;
+            left: 50%;
+            top: calc(100% + 0.45rem);
+            transform: translateX(-50%) translateY(-4px) scale(0.98);
+            width: max-content;
+            max-width: min(26rem, 92vw);
+            padding: 0.75rem 0.95rem 0.85rem;
+            text-align: left;
+            font-family: 'EB Garamond', serif;
+            font-size: 0.92rem;
+            font-weight: 400;
+            line-height: 1.45;
+            letter-spacing: 0.02em;
+            color: #e8e2d6;
+            background: linear-gradient(160deg, rgba(42, 36, 32, 0.98) 0%, rgba(24, 22, 20, 0.99) 100%);
+            border: 1px solid rgba(200, 120, 90, 0.38);
+            border-radius: 8px;
+            box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.2s linear;
+            z-index: 20;
+        }
+
+        .sphere-tip::after {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-bottom-color: rgba(32, 28, 26, 0.98);
+            filter: drop-shadow(0 -1px 0 rgba(200, 120, 90, 0.2));
+        }
+
+        .sphere-header-wrap:hover .sphere-tip,
+        .sphere-header-wrap:focus-within .sphere-tip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+
         canvas {
             display: block;
             border-radius: 4px;
@@ -98,12 +168,21 @@
 
 <body>
 
-    <h1>Holonomy</h1>
-    <div class="subtitle">parallel transport on S²</div>
+    <div class="sphere-header-wrap" tabindex="0" aria-describedby="sphere-holonomy-tip">
+        <h1>Holonomy</h1>
+        <div class="subtitle">parallel transport on S²</div>
+        <div class="sphere-tip" id="sphere-holonomy-tip" role="tooltip">
+            The closed path is a geodesic triangle: each edge is a great-circle arc on the unit sphere. The arrow is
+            parallel-transported along that path — it stays tangent, with no twisting off the surface, so the local
+            geometry (the Levi–Civita connection) decides how it turns at each step. When the loop closes, the arrow
+            generally points somewhere new relative to its start; the deficit angle at lower right is that rotation,
+            i.e. the holonomy. On a unit sphere it equals the area enclosed by the loop. Drag the view to orbit the
+            scene.
+        </div>
+    </div>
     <canvas id="c"></canvas>
     <div class="drag-hint" id="dragHint">drag to rotate</div>
     <div class="info-bar">
-        <div>path: <span>spherical triangle</span></div>
         <div>transport: <span id="direction">forward</span></div>
         <div>progress: <span id="progress">0%</span></div>
     </div>
